@@ -61,10 +61,10 @@ if __name__ == '__main__':
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
     inputFileName = '2016-02-22-20-27-28-stephan.csv'
     pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+inputFileName+'.pdf'
-
+    pdfFilePath = resultsPath+pdfFileName
     
     
-    pp = PdfPages(resultsPath+pdfFileName)
+    pp = PdfPages(pdfFilePath)
     
 
     fileData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'+inputFileName)
@@ -153,7 +153,7 @@ if __name__ == '__main__':
 
     pp.close();
     
-    writeToReportFile([str(now),inputFileName,str(opt.get_minimal_error()),str(opt.optimization_dict),pdfFileName])
+    writeToReportFile([str(now),inputFileName,str(opt.get_minimal_error()),str(opt.optimization_dict),'=HYPERLINK(\"'+pdfFilePath+'\")'])
     
     #gridsearch_parameters = {reservoir:{'_instance':range(5), 'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1)}}
     #opt1D = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
