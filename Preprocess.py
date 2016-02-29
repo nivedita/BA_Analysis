@@ -1,0 +1,185 @@
+
+import numpy
+import matplotlib
+import matplotlib.pyplot as plt
+import scipy
+import mdp
+import csv
+from thread import start_new_thread
+
+def readFileToNumpy(fileName):
+    reader=csv.reader(open(fileName,"rb"),delimiter=',')
+    x=list(reader)
+    return numpy.array(x[1:]).astype('float')
+
+def separateInputData(fileData):
+    fused = numpy.atleast_2d(fileData[:,1:4])
+    gyro = numpy.atleast_2d(fileData[:,4:7])
+    acc = numpy.atleast_2d(fileData[:,7:10])
+    targets = numpy.atleast_2d(fileData[:,10:])
+    return fused, gyro, acc, targets
+
+
+def transformToDelta(vals):
+    newVals = numpy.zeros((len(vals),len(vals[0])))
+    for i in range(1,len(vals)):
+        newVals[i-1] = vals[i]-vals[i-1]
+    return newVals
+
+def removeLOverflow(fused):
+    for i in range(0,len(fused)):
+        if fused[i,0] > numpy.pi:
+            fused[i,0] = fused[i,0] - 2*numpy.pi
+        if fused[i,0] < -numpy.pi:
+            fused[i,0] = fused[i,0] + 2*numpy.pi
+            
+        if fused[i,1] > numpy.pi:
+            fused[i,1] = fused[i,1] - 2*numpy.pi
+        if fused[i,1] < -numpy.pi:
+            fused[i,1] = fused[i,1] + 2*numpy.pi
+
+        if fused[i,2] > numpy.pi:
+            fused[i,2] = fused[i,2] - 2*numpy.pi
+        if fused[i,2] < -numpy.pi:
+            fused[i,2] = fused[i,2] + 2*numpy.pi
+    return fused
+
+def applyActivationFilter(inputData, width):
+    actLevel = numpy.sum(numpy.abs(inputData),1)
+    target = numpy.zeros((len(inputData),1))
+    for i in range(width,len(inputData-width)):
+            target[i] = numpy.mean(actLevel[i-width:i+width])
+    return target
+
+
+
+def centerAndNormalize(inputData):
+    means = numpy.mean(inputData, 0)
+    centered = inputData - means
+    vars = numpy.std(centered, 0)
+    normalized = centered/vars
+    return normalized
+
+
+def getTrainingBeginAndEndIndex(targetSig):
+    beginInd = 0
+    endInd = len(targetSig)
+    for i in range(0,len(targetSig)):
+            if targetSig[i] == 1:
+                beginInd= i-1;
+                break
+    for i in range(0,len(targetSig)):
+            if targetSig[len(targetSig)-1-i] == 1:
+                endInd= len(targetSig)-i;
+                break
+    return beginInd,endInd
+
+
+def formatDataSet(data):
+    print data.shape
+    newStart = input("Start:")
+    newEnd = input("End:")
+    newData = data[newStart:newEnd,:]
+    return newData
+
+def formatTargetFilter(data):
+    treshold = input('Treshold:')
+    targetFunction = (data[:,10] > treshold).astype(float)
+    plt.figure()
+    plt.plot(data[:,9])
+    plt.plot(data[:,10])
+    plt.plot(targetFunction)
+    return targetFunction
+    
+def removeArea(data):
+    cutOutStart = input("Start:")
+    cutOutEnd = input("End:")
+    newDataStart = data[:cutOutStart,:]
+    newDataEnd = data[cutOutEnd:,:]
+    return numpy.concatenate((newDataStart,newDataEnd))
+    
+    
+def plotData(data):
+        plt.figure()
+        plt.clf()
+        plt.subplot(411)
+        plt.title('Fused')
+        plt.plot(data[:,0:3])
+        plt.plot(data[:,9])
+        plt.plot(data[:,10])
+        
+        plt.subplot(412)
+        plt.title('Gyro')
+        plt.plot(data[:,3:6])
+        plt.plot(data[:,9])
+        plt.plot(data[:,10])
+        
+        plt.subplot(413)
+        plt.title('Acc')
+        plt.plot(data[:,6:9])
+        plt.plot(data[:,9])
+        plt.plot(data[:,10])
+        
+        
+        plt.subplot(414)
+        plt.title('Targets')
+        plt.plot(data[:,9])
+        plt.plot(data[:,10])  
+        plt.show()
+    
+    
+def writeToCSV(data,fileName):
+    numpy.savetxt("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName+".csv", data, delimiter=";")
+    
+    
+def load(nr):
+    global i
+    plt.close('all')
+    i = readFile("nadja\\nadja_"+str(nr)+".csv")
+    plotData(i)
+
+    
+def safe(inputData,aaa,nr):
+    writeToCSV(numpy.concatenate((inputData,numpy.atleast_2d(aaa).T),1),"nadja_fitted_"+str(nr))
+
+def readFile(fileName):
+    return readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
+
+#if __name__ == '__main__':
+    
+def main():
+    
+
+    plt.close('all')
+    plt.ion()
+    inputFileName = '2016-02-27-17-36-01-nadja2.csv','2016-02-27-17-40-26-nadja3.csv','2016-02-27-17-49-02-nadja6.csv','2016-02-27-17-53-52-nadja7.csv'
+    
+    fileData = numpy.zeros((1,31))
+    for fileName in inputFileName:
+        newData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'+fileName)
+        fileData = numpy.append(fileData,newData,0)
+    
+    fused, gyro, acc, targets = separateInputData(fileData)
+    
+    fused = transformToDelta(fused)
+    fused = removeLOverflow(fused)
+    
+    fused = centerAndNormalize(fused)
+    gyro = centerAndNormalize(gyro)
+    acc = centerAndNormalize(acc)
+    
+    
+    dataSets = []
+    for i in range(0,len(targets[0])):
+        start, end = getTrainingBeginAndEndIndex(targets[:,i])
+        t_fused = fused[start:end,:]
+        t_gyro = gyro[start:end,:]
+        t_acc = acc[start:end,:]
+        t_target =numpy.atleast_2d(targets[start:end,i]).T
+        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),3)
+        a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
+        dataSets.append(a)
+    
+    
+    
+              

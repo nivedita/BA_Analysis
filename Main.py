@@ -14,10 +14,15 @@ import csv
 import Oger
 import datetime
 from matplotlib.backends.backend_pdf import PdfPages
+from Server import *
+import threading
 
 
-
-
+def transformToDelta(vals):
+    newVals = numpy.zeros((len(vals),len(vals[0])))
+    for i in range(1,len(vals)):
+        newVals[i-1] = vals[i]-vals[i-1]
+    return newVals
 
 def readFileToNumpy(fileName):
     reader=csv.reader(open(fileName,"rb"),delimiter=',')
@@ -52,14 +57,36 @@ def writeToReportFile(text):
         spamwriter.writerow(text)
 
 
+def startServer():
+    pass
+
+    #address = ('192.168.0.115', 11111) # let the kernel give us a port
+    #server = EchoServer(address, MyTCPHandler)
+    #ip, port = server.server_address # find out what port we were given
+
+    #t = threading.Thread(target=server.serve_forever)
+    #t.setDaemon(True) # don't hang on exit
+    #t.start()
+
+
 
 
 
 if __name__ == '__main__':
 
+
+
+
+    useDelta = True
+    useCenterAndNormalize = True
+    useFused = True
+    useGyro = True
+    useAcc = True
+
+    plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
-    inputFileName = '2016-02-22-20-27-28-stephan.csv'
+    inputFileName = '2016-02-27-17-36-01-nadja2.csv'
     pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+inputFileName+'.pdf'
     pdfFilePath = resultsPath+pdfFileName
     
@@ -71,16 +98,22 @@ if __name__ == '__main__':
     fileData = multiplyData(fileData, 4)
     fused, gyro, acc, targets = separateInputData(fileData)
     
-    fused = centerAndNormalize(fused);
-    gyro  = centerAndNormalize(gyro);
-    acc   = centerAndNormalize(acc);
+    if useDelta:
+        fused = transformToDelta(fused)
+        gyro  = transformToDelta(gyro)
+        acc   = transformToDelta(acc)
 
+    if useCenterAndNormalize:
+        fused = centerAndNormalize(fused)
+        gyro = centerAndNormalize(gyro)
+        acc = centerAndNormalize(acc)
 
     plt.figure(1)
     plt.clf()
     plt.subplot(311)
     plt.title('Fused')
     plt.plot(fused)
+    plt.plot(targets)
     
     plt.subplot(312)
     plt.title('Gyro')
@@ -103,25 +136,42 @@ if __name__ == '__main__':
     #target = result[0:1000,9]
     #target=[numpy.expand_dims(target, 1)]
     
-    x,y = Oger.datasets.narma30() 
-    data = [zip(x[0:-1],y[0:-1])]
+
     
     
     readOutTrainingData = numpy.atleast_2d(targets[:,0]).T
     data = [[None]]
     
     #data = [x[0:-1], zip(x[0:-1],y[0:-1])]
-    reservoir = Oger.nodes.ReservoirNode(input_dim=3,input_scaling=0.9, output_dim=400)
-    readoutnode = Oger.nodes.RidgeRegressionNode(ridge_param=0.1)
+    reservoir = Oger.nodes.ReservoirNode(output_dim=400)
+    readoutnode = Oger.nodes.RidgeRegressionNode()
     flow = mdp.Flow( [reservoir,readoutnode])
 
-    data = [[(fused,readOutTrainingData),(fused,readOutTrainingData),(fused,readOutTrainingData)],[(fused,readOutTrainingData),(fused,readOutTrainingData),(fused,readOutTrainingData)]]
+
+    inputData = numpy.empty((0,0))
+    if useFused:
+        inputData = fused
+        
+    if useGyro:
+        if len(inputData) == 0:
+            inputData = gyro
+        else:
+            inputData = numpy.append(inputData, gyro, 1)
+            
+    if useAcc:
+        if len(inputData) == 0:
+            inputData = acc
+        else:
+            inputData = numpy.append(inputData, acc, 1)
+            
+            
+    data = [[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)],[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)]]
     #flow.train(data)
     
 
     
     
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.55, 1.3, 0.2),'input_scaling': mdp.numx.arange(0.5, .8, 0.1),'_instance':range(3)}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.5, 1.11, 0.2),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(1)},readoutnode:{'ridge_param':[ 0.001, 1]}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     errors = opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
@@ -130,13 +180,13 @@ if __name__ == '__main__':
     #opt.grid_search(data, flow, cross_validate_function=Oger.evaluation.n_fold_random, n_folds=2)
     plt.figure(3)
     plt.clf
-    opt.plot_results([(reservoir, '_instance')])
+    opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param')])
     pp.savefig()
     
     
     bestFlow = opt.get_optimal_flow(True)
     bestFlow.train(data)
-    prediction = bestFlow([fused])
+    prediction = bestFlow([inputData])
     
     
     plt.figure(2)
@@ -146,14 +196,34 @@ if __name__ == '__main__':
     plt.plot(prediction)
     plt.subplot()
     plt.plot(numpy.expand_dims(targets[:,0],1))
+    plt.subplot()
+    plt.plot(inputData/numpy.max(inputData))
     pp.savefig()
-        
+   
+    pp.close();     
 
 
+    result = [str(now),inputFileName,str(opt.get_minimal_error())]
+    result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc)])
+    result.extend(['delta',str(useDelta),'centerAndNormalize',str(useCenterAndNormalize)])
 
-    pp.close();
     
-    writeToReportFile([str(now),inputFileName,str(opt.get_minimal_error()),str(opt.optimization_dict),'=HYPERLINK(\"'+pdfFilePath+'\")'])
+    for a in opt.optimization_dict.get(reservoir).iterkeys():
+        result.append(a)
+        result.append(opt.optimization_dict.get(reservoir).get(a))
+    for a in opt.optimization_dict.get(readoutnode).iterkeys():
+        result.append(a)
+        result.append(opt.optimization_dict.get(readoutnode).get(a))
+
+    result.extend(['paraList',opt.parameter_ranges])
+    result.extend(['errors',numpy.array2string(opt.errors).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
+    
+
+
+    
+    result.append('=HYPERLINK(\"'+pdfFilePath+'\")')
+    
+    writeToReportFile(result)
     
     #gridsearch_parameters = {reservoir:{'_instance':range(5), 'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1)}}
     #opt1D = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
