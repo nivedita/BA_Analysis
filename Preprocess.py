@@ -150,6 +150,7 @@ def readFile(fileName):
 def main():
     
 
+
     plt.close('all')
     plt.ion()
     inputFileName = '2016-02-27-17-36-01-nadja2.csv','2016-02-27-17-40-26-nadja3.csv','2016-02-27-17-49-02-nadja6.csv','2016-02-27-17-53-52-nadja7.csv'

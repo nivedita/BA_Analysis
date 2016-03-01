@@ -25,7 +25,7 @@ def transformToDelta(vals):
     return newVals
 
 def readFileToNumpy(fileName):
-    reader=csv.reader(open(fileName,"rb"),delimiter=',')
+    reader=csv.reader(open(fileName,"rb"),delimiter=';')
     x=list(reader)
     return numpy.array(x[1:]).astype('float')
 
@@ -40,14 +40,14 @@ def multiplyData(data, multiplier):
     newData = data
     for i in range(0,multiplier):
         newData = numpy.append(newData, data, 0)
-        newData = numpy.append(newData, numpy.zeros((numpy.random.randint(1000),31)), 0)
+        newData = numpy.append(newData, numpy.zeros((numpy.random.randint(100),len(data[0]))), 0)
     return newData
 
 def separateInputData(fileData):
-    fused = numpy.atleast_2d(fileData[:,1:4])
-    gyro = numpy.atleast_2d(fileData[:,4:7])
-    acc = numpy.atleast_2d(fileData[:,7:10])
-    targets = numpy.atleast_2d(fileData[:,10:])
+    fused = numpy.atleast_2d(fileData[:,0:3])
+    gyro = numpy.atleast_2d(fileData[:,3:6])
+    acc = numpy.atleast_2d(fileData[:,6:9])
+    targets = numpy.atleast_2d(fileData[:,9:])
     return fused, gyro, acc, targets
 
 def writeToReportFile(text):
@@ -77,8 +77,8 @@ if __name__ == '__main__':
 
 
 
-    useDelta = True
-    useCenterAndNormalize = True
+    useDelta = False
+    useCenterAndNormalize = False
     useFused = True
     useGyro = True
     useAcc = True
@@ -86,15 +86,14 @@ if __name__ == '__main__':
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
-    inputFileName = '2016-02-27-17-36-01-nadja2.csv'
+    inputFileName = ("nadja_fitted_0.csv")
     pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+inputFileName+'.pdf'
     pdfFilePath = resultsPath+pdfFileName
     
     
     pp = PdfPages(pdfFilePath)
     
-
-    fileData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'+inputFileName)
+    fileData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\nadja_fitted\\'+inputFileName)
     fileData = multiplyData(fileData, 4)
     fused, gyro, acc, targets = separateInputData(fileData)
     
@@ -139,7 +138,7 @@ if __name__ == '__main__':
 
     
     
-    readOutTrainingData = numpy.atleast_2d(targets[:,0]).T
+    readOutTrainingData = numpy.atleast_2d(targets[:,2]).T
     data = [[None]]
     
     #data = [x[0:-1], zip(x[0:-1],y[0:-1])]
@@ -169,18 +168,25 @@ if __name__ == '__main__':
     #flow.train(data)
     
 
+
+#def startGridSearch():    
     
-    
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.5, 1.11, 0.2),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(1)},readoutnode:{'ridge_param':[ 0.001, 1]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.2),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(2)},readoutnode:{'ridge_param':[ 0.001, 0.1, 1]}}
+    #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    errors = opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
+    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
     #gridsearch_parameters = {reservoir:{'_instance':range(5), 'spectral_radius':mdp.numx.arange(0.8, 1.1, 0.1)}}
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     #opt.grid_search(data, flow, cross_validate_function=Oger.evaluation.n_fold_random, n_folds=2)
     plt.figure(3)
     plt.clf
-    opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param')])
+    
+    if gridsearch_parameters.has_key(readoutnode):
+        opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param')],plot_variance=False)
+    else:
+        opt.plot_results([(reservoir, '_instance')],plot_variance=False)
+        
     pp.savefig()
     
     
@@ -195,7 +201,7 @@ if __name__ == '__main__':
     plt.title('Prediction')
     plt.plot(prediction)
     plt.subplot()
-    plt.plot(numpy.expand_dims(targets[:,0],1))
+    plt.plot(numpy.expand_dims(targets[:,2],1))
     plt.subplot()
     plt.plot(inputData/numpy.max(inputData))
     pp.savefig()
@@ -211,9 +217,10 @@ if __name__ == '__main__':
     for a in opt.optimization_dict.get(reservoir).iterkeys():
         result.append(a)
         result.append(opt.optimization_dict.get(reservoir).get(a))
-    for a in opt.optimization_dict.get(readoutnode).iterkeys():
-        result.append(a)
-        result.append(opt.optimization_dict.get(readoutnode).get(a))
+    if(opt.optimization_dict.get(readoutnode) != None):
+        for a in opt.optimization_dict.get(readoutnode).iterkeys():
+            result.append(a)
+            result.append(opt.optimization_dict.get(readoutnode).get(a))
 
     result.extend(['paraList',opt.parameter_ranges])
     result.extend(['errors',numpy.array2string(opt.errors).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
