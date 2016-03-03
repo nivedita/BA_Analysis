@@ -16,7 +16,7 @@ import datetime
 from matplotlib.backends.backend_pdf import PdfPages
 from Server import *
 import threading
-
+import DataSet
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -96,8 +96,6 @@ if __name__ == '__main__':
 
 
 
-    useDelta = False
-    useCenterAndNormalize = False
     useFused = True
     useGyro = True
     useAcc = True
@@ -112,94 +110,36 @@ if __name__ == '__main__':
     
     pp = PdfPages(pdfFilePath)
     
-    fileData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\nadja_fitted\\'+inputFileName)
-    fused, gyro, acc, targets = separateInputData(fileData)
- 
-    
-    if useDelta:
-        fused = transformToDelta(fused)
-        gyro  = transformToDelta(gyro)
-        acc   = transformToDelta(acc)
-
-    if useCenterAndNormalize:
-        fused = centerAndNormalize(fused)
-        gyro = centerAndNormalize(gyro)
-        acc = centerAndNormalize(acc)
-
-    plt.figure(1)
-    plt.clf()
-    plt.subplot(311)
-    plt.title('Fused')
-    plt.plot(fused)
-    plt.plot(targets)
-    
-    plt.subplot(312)
-    plt.title('Gyro')
-    plt.plot(gyro)
-    
-    plt.subplot(313)
-    plt.title('Acc')
-    plt.plot(acc)
-    pp.savefig()
-    
-    
-    
-
-    #formatedInputData = [numpy.expand_dims(result[0:1000,0],1).T]
-    #formatedInputData[0] = formatedInputData[0].T
-    #for i in range(1,8) :
-    #    formatedInputData.append(numpy.expand_dims(result[0:1000,i],1).T)
-    #    formatedInputData[i] = formatedInputData[i].T
-    #    print(i)
-    #target = result[0:1000,9]
-    #target=[numpy.expand_dims(target, 1)]
-    
-
-    
-    
-    
-    
-    #data = [x[0:-1], zip(x[0:-1],y[0:-1])]
+        
     reservoir = Oger.nodes.ReservoirNode()
     readoutnode = Oger.nodes.RidgeRegressionNode()
     flow = mdp.Flow( [reservoir,readoutnode])
 
+    
+#    testData = inputData[350:,:]
+#    testTargets = targets[350:,:]
+#    inputData = inputData[:350,:]
+#    targets = targets[:350,:]
+#    inputData = multiplyData(inputData, 5)
+#    targets = multiplyData(targets, 5)
+#    testData = multiplyData(testData, 5) 
+#    testTargets = multiplyData(testTargets, 5)
+#    readOutTrainingData = numpy.atleast_2d(targets[:,2]).T
 
-    inputData = numpy.empty((0,0))
-    if useFused:
-        inputData = fused
-        
-    if useGyro:
-        if len(inputData) == 0:
-            inputData = gyro
-        else:
-            inputData = numpy.append(inputData, gyro, 1)
-            
-    if useAcc:
-        if len(inputData) == 0:
-            inputData = acc
-        else:
-            inputData = numpy.append(inputData, acc, 1)
-            
-    data = [[None]]       
-    
-    
-    testData = inputData[350:,:]
-    testTargets = targets[350:,:]
-    inputData = inputData[:350,:]
-    targets = targets[:350,:]
-    inputData = multiplyData(inputData, 5)
-    targets = multiplyData(targets, 5)
-    testData = multiplyData(testData, 5) 
-    testTargets = multiplyData(testTargets, 5)
-       
-    readOutTrainingData = numpy.atleast_2d(targets[:,2]).T
+
+
     #data = [[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)],[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)]]
-    data = [splitBySignals(inputData, targets, 2),splitBySignals(inputData, targets, 2)]
+    #data = [splitBySignals(inputData, targets, 2),splitBySignals(inputData, targets, 2)]
+    a = DataSet.DataSet('nadja_fitted_0.csv')
+    b = DataSet.DataSet('nadja_0_1.csv')
+    c = DataSet.DataSet('nadja_0_2.csv')
+    d = DataSet.DataSet('nadja_0_3.csv')
+    
+    data = [[a.getDataForTraining(useFused, useGyro, useAcc, 2,4),b.getDataForTraining(useFused, useGyro, useAcc, 2,4),d.getDataForTraining(useFused, useGyro, useAcc, 2,4)], \
+            [a.getDataForTraining(useFused, useGyro, useAcc, 2,4),b.getDataForTraining(useFused, useGyro, useAcc, 2,4),d.getDataForTraining(useFused, useGyro, useAcc, 2,4)]]
     #flow.train(data)
 
 #def startGridSearch():    
-    
     gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.2, 0.8, 0.2),'output_dim':[4, 40, 400],'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(5)},readoutnode:{'ridge_param':[0.00000001, 0.0001, 0.1]}}
     #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
@@ -213,7 +153,7 @@ if __name__ == '__main__':
     plt.clf
     
     if gridsearch_parameters.has_key(readoutnode):
-        opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param')],plot_variance=False)
+        opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param'),(reservoir, 'output_dim')],plot_variance=False)
     else:
         opt.plot_results([(reservoir, '_instance')],plot_variance=False)
         
@@ -222,7 +162,7 @@ if __name__ == '__main__':
     
     bestFlow = opt.get_optimal_flow(True)
     bestFlow.train(data)
-    prediction = bestFlow([inputData])
+    prediction = bestFlow([a.getDataForTraining(useFused, useGyro, useAcc, 2)[0]])
     
     
     plt.figure(2)
@@ -231,20 +171,20 @@ if __name__ == '__main__':
     plt.title('Prediction on training')
     plt.plot(prediction)
     plt.subplot()
-    plt.plot(numpy.expand_dims(targets[:,2],1))
+    plt.plot(numpy.atleast_2d(a.getDataForTraining(useFused, useGyro, useAcc, 2)[1]))
     plt.subplot()
-    plt.plot(inputData/numpy.max(inputData))
+    plt.plot(a.getDataForTraining(useFused, useGyro, useAcc, 2)[0]/numpy.max(a.getDataForTraining(useFused, useGyro, useAcc, 2)[0]))
     pp.savefig()
    
    
-    t_prediction = bestFlow([testData])
+    t_prediction = bestFlow([c.getDataForTraining(useFused, useGyro, useAcc, 2)[0]])
     plt.figure()
     plt.clf()
     plt.subplot()
     plt.title('Prediction on test')
     plt.plot(t_prediction)
     plt.subplot()
-    plt.plot(numpy.expand_dims(testTargets[:,2],1))
+    plt.plot(c.getDataForTraining(useFused, useGyro, useAcc, 2)[1])
     plt.subplot()
     #plt.plot(testData/numpy.max(inputData))
     pp.savefig()
@@ -258,7 +198,7 @@ if __name__ == '__main__':
 
     result = [str(now),inputFileName,str(opt.get_minimal_error())]
     result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc)])
-    result.extend(['delta',str(useDelta),'centerAndNormalize',str(useCenterAndNormalize)])
+
 
     
     for a in opt.optimization_dict.get(reservoir).iterkeys():
