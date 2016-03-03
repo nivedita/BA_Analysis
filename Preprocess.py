@@ -20,6 +20,8 @@ def separateInputData(fileData):
     return fused, gyro, acc, targets
 
 
+
+
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
     for i in range(1,len(vals)):
@@ -145,19 +147,19 @@ def safe(inputData,aaa,nr):
 def readFile(fileName):
     return readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
     
-def main():
+#def main():
     
 
 
     plt.close('all')
     plt.ion()
-    inputFileName = '2016-02-27-17-36-01-nadja2.csv','2016-02-27-17-40-26-nadja3.csv','2016-02-27-17-49-02-nadja6.csv','2016-02-27-17-53-52-nadja7.csv'
+    inputFileName = ["2016-03-03-09-49-21-nadja_one_move.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
-        newData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'+fileName)
+        newData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
         fileData = numpy.append(fileData,newData,0)
     
     fused, gyro, acc, targets = separateInputData(fileData)
@@ -180,7 +182,6 @@ def main():
         t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),3)
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
-    
     
     
               

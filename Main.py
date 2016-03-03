@@ -40,7 +40,7 @@ def multiplyData(data, multiplier):
     newData = data
     for i in range(0,multiplier):
         newData = numpy.append(newData, data, 0)
-        newData = numpy.append(newData, numpy.zeros((numpy.random.randint(100),len(data[0]))), 0)
+        newData = numpy.append(newData, numpy.zeros((50,len(data[0]))), 0)
     return newData
 
 def separateInputData(fileData):
@@ -55,6 +55,25 @@ def writeToReportFile(text):
         spamwriter = csv.writer(csvfile, delimiter=';',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(text)
+
+def splitBySignals(inputData,target,targetCol=2):
+    startInd = 0
+    endInd = 0
+    splitted = []
+    for i in range(1,len(inputData)):
+        endInd = i
+        if (target[i-1,targetCol] > target[i,targetCol]):
+            ins = inputData[startInd:endInd,:]
+            outs = numpy.atleast_2d(target[startInd:endInd,targetCol]).T
+            lens = len(ins)
+            zeros = numpy.zeros((100-lens,len(ins[0])))
+            ins = numpy.append(ins,zeros,0)
+            outs = numpy.append(outs,numpy.zeros((100-lens,len(outs[0]))),0)                    
+            tup = (ins,outs)
+            splitted.append(tup)
+            
+            startInd = endInd
+    return splitted
 
 
 def startServer():
@@ -86,7 +105,7 @@ if __name__ == '__main__':
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
-    inputFileName = ("nadja_fitted_0.csv")
+    inputFileName = ("nadja_fitted_10.csv")
     pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+inputFileName+'.pdf'
     pdfFilePath = resultsPath+pdfFileName
     
@@ -94,8 +113,8 @@ if __name__ == '__main__':
     pp = PdfPages(pdfFilePath)
     
     fileData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\nadja_fitted\\'+inputFileName)
-    fileData = multiplyData(fileData, 4)
     fused, gyro, acc, targets = separateInputData(fileData)
+ 
     
     if useDelta:
         fused = transformToDelta(fused)
@@ -138,11 +157,10 @@ if __name__ == '__main__':
 
     
     
-    readOutTrainingData = numpy.atleast_2d(targets[:,2]).T
-    data = [[None]]
+    
     
     #data = [x[0:-1], zip(x[0:-1],y[0:-1])]
-    reservoir = Oger.nodes.ReservoirNode(output_dim=400)
+    reservoir = Oger.nodes.ReservoirNode()
     readoutnode = Oger.nodes.RidgeRegressionNode()
     flow = mdp.Flow( [reservoir,readoutnode])
 
@@ -163,17 +181,29 @@ if __name__ == '__main__':
         else:
             inputData = numpy.append(inputData, acc, 1)
             
-            
-    data = [[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)],[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)]]
-    #flow.train(data)
+    data = [[None]]       
     
-
+    
+    testData = inputData[350:,:]
+    testTargets = targets[350:,:]
+    inputData = inputData[:350,:]
+    targets = targets[:350,:]
+    inputData = multiplyData(inputData, 5)
+    targets = multiplyData(targets, 5)
+    testData = multiplyData(testData, 5) 
+    testTargets = multiplyData(testTargets, 5)
+       
+    readOutTrainingData = numpy.atleast_2d(targets[:,2]).T
+    #data = [[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)],[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)]]
+    data = [splitBySignals(inputData, targets, 2),splitBySignals(inputData, targets, 2)]
+    #flow.train(data)
 
 #def startGridSearch():    
     
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.2),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(2)},readoutnode:{'ridge_param':[ 0.001, 0.1, 1]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.2, 0.8, 0.2),'output_dim':[4, 40, 400],'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(5)},readoutnode:{'ridge_param':[0.00000001, 0.0001, 0.1]}}
     #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+    #opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.leave_one_out)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
     #gridsearch_parameters = {reservoir:{'_instance':range(5), 'spectral_radius':mdp.numx.arange(0.8, 1.1, 0.1)}}
@@ -198,7 +228,7 @@ if __name__ == '__main__':
     plt.figure(2)
     plt.clf()
     plt.subplot()
-    plt.title('Prediction')
+    plt.title('Prediction on training')
     plt.plot(prediction)
     plt.subplot()
     plt.plot(numpy.expand_dims(targets[:,2],1))
@@ -206,7 +236,24 @@ if __name__ == '__main__':
     plt.plot(inputData/numpy.max(inputData))
     pp.savefig()
    
-    pp.close();     
+   
+    t_prediction = bestFlow([testData])
+    plt.figure()
+    plt.clf()
+    plt.subplot()
+    plt.title('Prediction on test')
+    plt.plot(t_prediction)
+    plt.subplot()
+    plt.plot(numpy.expand_dims(testTargets[:,2],1))
+    plt.subplot()
+    #plt.plot(testData/numpy.max(inputData))
+    pp.savefig()
+      
+   
+   
+    pp.close();  
+    
+       
 
 
     result = [str(now),inputFileName,str(opt.get_minimal_error())]
