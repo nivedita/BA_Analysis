@@ -1,6 +1,7 @@
 import numpy
 import matplotlib.pyplot as plt
 import csv
+from sklearn.cluster.mean_shift_ import MeanShift
 
 class DataSet(object):
     
@@ -8,23 +9,21 @@ class DataSet(object):
     gyro = numpy.empty((0,0))
     acc  = numpy.empty((0,0))
     targets = numpy.empty((0,0))
+    means = numpy.empty((0,0))
+    stds = numpy.empty((0,0))
+    gestures = numpy.empty((0,0))
     
-    @classmethod
-    def createFromFile(cls,self, fused, gyro, acc, targets):
+    
+    def __init__(self, fused, gyro, acc, targets,means, stds, gestures):
         self.fused = fused
         self.gyro = gyro
         self.acc = acc 
         self.targets = targets
+        self.means = means
+        self.stds = stds
+        self.gestures = gestures
         
-        
-    def __init__(self, fileName):
-        reader= csv.reader(open('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName,"rb"),delimiter=';')
-        x=list(reader)
-        data = numpy.array(x[1:]).astype('float')
-        self.fused = data[:,0:3]
-        self.gyro = data[:,3:6]
-        self.acc = data[:,6:9]
-        self.targets = data[:,9:]
+
 
 
        
@@ -90,11 +89,28 @@ class DataSet(object):
             data = numpy.append(data,inputData,0)
             target = numpy.append(target,readOutTrainingData,0)
         return (data,target)
-        
+    
+    
+    def getMinusPlusDataForTraining(self, useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
+        inputData, target = self.getDataForTraining(useFused, useGyro, useAcc, targetNr, multiplier)
+        low_values_indices = target == 0  # Where values are low
+        target[low_values_indices] = -1
+        return (inputData,target)
         
         
     def writeToFile(self, fileName):
-        data = numpy.concatenate((self.fused,self.gyro,self.acc,self.targets),1)
-        numpy.savetxt("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName+".csv", data, delimiter=";")
+        numpy.savez("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName,  \
+                    fused=self.fused,gyro=self.gyro,acc=self.acc,targets=self.targets,means=self.means,stds=self.stds,gestures=self.gestures)
         
+        
+def createDataSetFromFile(fileName):
+    data = numpy.load('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
+    fused = data['fused']
+    gyro = data['gyro']
+    acc = data['acc']
+    targets = data['targets']
+    means = data['means']
+    stds = data['stds']
+    gestures = data['gestures']
+    return DataSet(fused, gyro, acc, targets,means, stds, gestures)
     

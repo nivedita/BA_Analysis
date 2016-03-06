@@ -6,6 +6,7 @@ import scipy
 import mdp
 import csv
 from thread import start_new_thread
+import DataSet
 
 def readFileToNumpy(fileName):
     reader=csv.reader(open(fileName,"rb"),delimiter=',')
@@ -60,7 +61,7 @@ def centerAndNormalize(inputData):
     centered = inputData - means
     vars = numpy.std(centered, 0)
     normalized = centered/vars
-    return normalized
+    return normalized, means, vars
 
 
 def getTrainingBeginAndEndIndex(targetSig):
@@ -86,11 +87,15 @@ def formatDataSet(data):
 
 def formatTargetFilter(data):
     treshold = input('Treshold:')
-    targetFunction = (data[:,10] > treshold).astype(float)
+    targetFunction = applyFormatTargetFilter(data, treshold)
     plt.figure()
     plt.plot(data[:,9])
     plt.plot(data[:,10])
     plt.plot(targetFunction)
+    return targetFunction
+
+def applyFormatTargetFilter(data, treshold):
+    targetFunction = (data[:,10] > treshold).astype(float)
     return numpy.atleast_2d(targetFunction).T
     
 def removeArea(data):
@@ -133,6 +138,11 @@ def plotData(data):
 def writeToCSV(data,fileName):
     numpy.savetxt("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName+".csv", data, delimiter=";")
     
+def safeToDataSet(fileName, data, means, stds, gestures, targetTreshold):
+    ds = DataSet.DataSet(data[:,0:3],data[:,3:6],data[:,6:9],numpy.append(data[:,9:], applyFormatTargetFilter(data, targetTreshold), 1), \
+                    means, stds, gestures)
+    ds.writeToFile(fileName)
+    
     
 def load(nr):
     global i
@@ -155,7 +165,7 @@ if __name__ == '__main__':
 
     plt.close('all')
     plt.ion()
-    inputFileName = ["2016-03-03-11-57-29-nadja_one_move_3.csv"]
+    inputFileName = ["2016-03-03-09-49-21-nadja_one_move.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
@@ -167,10 +177,13 @@ if __name__ == '__main__':
     fused = transformToDelta(fused)
     fused = removeLOverflow(fused)
     
-    fused = centerAndNormalize(fused)
-    gyro = centerAndNormalize(gyro)
-    acc = centerAndNormalize(acc)
+    fused, f_means, f_stds = centerAndNormalize(fused)
+    gyro, g_means, g_stds = centerAndNormalize(gyro)
+    acc, a_means, a_stds = centerAndNormalize(acc)
     
+    means = numpy.concatenate((f_means,g_means,a_means),0)
+    stds = numpy.concatenate((f_stds,g_stds,a_stds),0)
+    gestures = numpy.max(targets,0)
     
     dataSets = []
     for i in range(0,len(targets[0])):
@@ -179,9 +192,9 @@ if __name__ == '__main__':
         t_gyro = gyro[start:end,:]
         t_acc = acc[start:end,:]
         t_target =numpy.atleast_2d(targets[start:end,i]).T
-        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),6)
+        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),4)
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
     
     
-              
+        

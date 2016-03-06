@@ -50,6 +50,12 @@ def separateInputData(fileData):
     targets = numpy.atleast_2d(fileData[:,9:])
     return fused, gyro, acc, targets
 
+def runningAverage(inputData, width):
+    target = numpy.zeros((len(inputData),1))
+    for i in range(width,len(inputData-width)):
+            target[i] = numpy.mean(inputData[i-width:i+width])
+    return target
+
 def writeToReportFile(text):
     with open('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\report.csv', 'ab') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=';',
@@ -116,41 +122,26 @@ if __name__ == '__main__':
     flow = mdp.Flow( [reservoir,readoutnode])
 
     
-#    testData = inputData[350:,:]
-#    testTargets = targets[350:,:]
-#    inputData = inputData[:350,:]
-#    targets = targets[:350,:]
-#    inputData = multiplyData(inputData, 5)
-#    targets = multiplyData(targets, 5)
-#    testData = multiplyData(testData, 5) 
-#    testTargets = multiplyData(testTargets, 5)
-#    readOutTrainingData = numpy.atleast_2d(targets[:,2]).T
-
-
-
-    #data = [[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)],[(inputData,readOutTrainingData),(inputData,readOutTrainingData),(inputData,readOutTrainingData)]]
-    #data = [splitBySignals(inputData, targets, 2),splitBySignals(inputData, targets, 2)]
-    a = DataSet.DataSet('nadja_fitted_0.csv')
-    b = DataSet.DataSet('nadja_0_1.csv')
-    c = DataSet.DataSet('nadja_0_2.csv')
-    d = DataSet.DataSet('nadja_0_3.csv')
     
-    data = [[a.getDataForTraining(useFused, useGyro, useAcc, 2,4),b.getDataForTraining(useFused, useGyro, useAcc, 2,4),d.getDataForTraining(useFused, useGyro, useAcc, 2,4)], \
-            [a.getDataForTraining(useFused, useGyro, useAcc, 2,4),b.getDataForTraining(useFused, useGyro, useAcc, 2,4),d.getDataForTraining(useFused, useGyro, useAcc, 2,4)]]
-    #flow.train(data)
+    
+    #a = DataSet.createDataSetFromFile('nadja_fitted_0.csv') broken muss rekonstruiert werden
+    b = DataSet.createDataSetFromFile('nadja_0_1.npz')
+    c = DataSet.createDataSetFromFile('nadja_0_2.npz')
+    d = DataSet.createDataSetFromFile('nadja_0_3.npz')
+    e = DataSet.createDataSetFromFile('daniel_0_0.npz')
+    
+    data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
+            [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
 
-#def startGridSearch():    
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.2, 0.8, 0.2),'output_dim':[4, 40, 400],'input_scaling': mdp.numx.arange(0.8, 1.4, 0.2),'_instance':range(5)},readoutnode:{'ridge_param':[0.00000001, 0.0001, 0.1]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[40,100,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(5)},readoutnode:{'ridge_param':[0.00000001,0.000001, 0.0001]}}
     #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    #opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.leave_one_out)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
-    #gridsearch_parameters = {reservoir:{'_instance':range(5), 'spectral_radius':mdp.numx.arange(0.8, 1.1, 0.1)}}
-    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    #opt.grid_search(data, flow, cross_validate_function=Oger.evaluation.n_fold_random, n_folds=2)
+
+    
     plt.figure(3)
-    plt.clf
+    plt.clf()
     
     if gridsearch_parameters.has_key(readoutnode):
         opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param'),(reservoir, 'output_dim')],plot_variance=False)
@@ -162,36 +153,37 @@ if __name__ == '__main__':
     
     bestFlow = opt.get_optimal_flow(True)
     bestFlow.train(data)
-    prediction = bestFlow([a.getDataForTraining(useFused, useGyro, useAcc, 2)[0]])
     
     
+    prediction = bestFlow([b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]])
     plt.figure(2)
     plt.clf()
     plt.subplot()
     plt.title('Prediction on training')
     plt.plot(prediction)
     plt.subplot()
-    plt.plot(numpy.atleast_2d(a.getDataForTraining(useFused, useGyro, useAcc, 2)[1]))
+    plt.plot(numpy.atleast_2d(b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1]))
     plt.subplot()
-    plt.plot(a.getDataForTraining(useFused, useGyro, useAcc, 2)[0]/numpy.max(a.getDataForTraining(useFused, useGyro, useAcc, 2)[0]))
+    plt.plot(b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]/numpy.max(b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]))
     pp.savefig()
    
    
-    t_prediction = bestFlow([c.getDataForTraining(useFused, useGyro, useAcc, 2)[0]])
+    t_prediction = bestFlow([e.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]])
     plt.figure()
     plt.clf()
     plt.subplot()
     plt.title('Prediction on test')
     plt.plot(t_prediction)
     plt.subplot()
-    plt.plot(c.getDataForTraining(useFused, useGyro, useAcc, 2)[1])
+    plt.plot(e.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
     plt.subplot()
-    #plt.plot(testData/numpy.max(inputData))
+    plt.plot(runningAverage(t_prediction, 10))
     pp.savefig()
       
    
    
     pp.close();  
+    
     
        
 
