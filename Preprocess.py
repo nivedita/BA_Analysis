@@ -165,7 +165,7 @@ if __name__ == '__main__':
 
     plt.close('all')
     plt.ion()
-    inputFileName = ["2016-03-03-09-49-21-nadja_one_move.csv"]
+    inputFileName = ["2016-03-07-10-57-09-stephan_1_0.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
@@ -192,7 +192,7 @@ if __name__ == '__main__':
         t_gyro = gyro[start:end,:]
         t_acc = acc[start:end,:]
         t_target =numpy.atleast_2d(targets[start:end,i]).T
-        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),4)
+        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),7)
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
     

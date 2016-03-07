@@ -17,6 +17,7 @@ from matplotlib.backends.backend_pdf import PdfPages
 from Server import *
 import threading
 import DataSet
+from sklearn.metrics import f1_score
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -81,6 +82,75 @@ def splitBySignals(inputData,target,targetCol=2):
             startInd = endInd
     return splitted
 
+def calcWeightedAverage(input_signal, target_signal):
+    global tresholdF1
+    
+    nDataPoints = len(input_signal.flatten())
+    signals = []
+    signalValue = 0
+    nSignalPoints = 0
+    for i in range(1,nDataPoints):
+        if target_signal[i] == 1:
+            signalValue = signalValue + input_signal[i]
+            nSignalPoints = nSignalPoints+1
+        elif target_signal[i] == 0 & target_signal[i-1] == 1:
+            signals.append(signalValue/nSignalPoints)
+            signalValue = 0
+            nSignalPoints = 0
+        else:
+            pass
+            
+            
+def calcSingleValueF1Score(input_signal, target_signal):
+    nDataPoints = len(input_signal.flatten())
+    bin_input_signal = numpy.ones((nDataPoints,1))
+    bin_input_signal[input_signal < 0] = 0
+    bin_target_signal = numpy.ones((nDataPoints,1))
+    bin_target_signal[input_signal < 0] = 0
+    score = f1_score(target_signal.astype('int'),bin_input_signal.astype('int'),average='binary')
+    return 1-score
+
+def calcF1Score(input_signal, target_signal):
+    treshold = 0.0
+    nDataPoints = len(input_signal.flatten())
+    t_target = numpy.copy(target_signal)
+    n_truePositive = 0
+    n_falsePositive = 0
+    i = 0
+    while i < nDataPoints:
+        n_true = 0
+        n_false = 0
+        removeTargetSignal = False
+        while i < nDataPoints and input_signal[i] > treshold:
+            if t_target[i] == 1:
+                n_true = n_true + 1
+            else: 
+                n_false = n_false +1
+            i = i+1
+        if n_true > n_false:
+            n_truePositive = n_truePositive + 1
+            removeTargetSignal = True
+        elif n_true < n_false:
+            n_falsePositive = n_falsePositive + 1
+        if removeTargetSignal:
+            j = i
+            while (j < nDataPoints) and (t_target[j] == 1) :   #remove this positive
+                t_target[j] = 0
+                j = j+1
+        i = i+1
+    
+    
+    n_totalPositives = 0
+    lastVal = 0
+    for i in range(0,nDataPoints):
+        if target_signal[i] > lastVal:
+            n_totalPositives = n_totalPositives+1
+        lastVal = target_signal[i] 
+    n_falseNegative = n_totalPositives - n_truePositive
+    
+    f1 = (2.*n_truePositive)/(2.*n_truePositive + n_falseNegative + n_falsePositive)
+            
+    return 1-f1
 
 def startServer():
     pass
@@ -105,14 +175,18 @@ if __name__ == '__main__':
     useFused = True
     useGyro = True
     useAcc = True
-
+    global tresholdF1
+    tresholdF1 = 0.5
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
-    inputFileName = ("nadja_fitted_10.csv")
-    pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+inputFileName+'.pdf'
+    name = input('Name:')
+    pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.pdf'
     pdfFilePath = resultsPath+pdfFileName
     
+    #inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz', 'stephan_0_2.npz','nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
+    inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
+    testFile = 'daniel_0_0.npz'
     
     pp = PdfPages(pdfFilePath)
     
@@ -122,20 +196,32 @@ if __name__ == '__main__':
     flow = mdp.Flow( [reservoir,readoutnode])
 
     
-    
-    
+    trainSets = []
+    testSets = []
+    dataStep = []
+    for iFile in inputFiles:
+        set = DataSet.createDataSetFromFile(iFile)
+        ds = DataSet.createDataSetFromFile('stephan_1_0.npz')
+        ds.targets = numpy.ones(ds.acc.shape) * (-1)
+        
+        dataStep.append((numpy.append(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0], \
+                                     ds.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0],0), \
+                         numpy.append(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1], \
+                                     ds.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1],0)))
+    data = [dataStep,dataStep]
     #a = DataSet.createDataSetFromFile('nadja_fitted_0.csv') broken muss rekonstruiert werden
-    b = DataSet.createDataSetFromFile('nadja_0_1.npz')
-    c = DataSet.createDataSetFromFile('nadja_0_2.npz')
-    d = DataSet.createDataSetFromFile('nadja_0_3.npz')
-    e = DataSet.createDataSetFromFile('daniel_0_0.npz')
+    #b = DataSet.createDataSetFromFile('nadja_0_1.npz')
+    #c = DataSet.createDataSetFromFile('nadja_0_2.npz')
+    #d = DataSet.createDataSetFromFile('nadja_0_3.npz')
+    testSets.append(DataSet.createDataSetFromFile(testFile))
+    testSets.append(DataSet.createDataSetFromFile('stephan_1_0.npz'))
     
-    data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
-            [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
+    #data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
+    #        [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
 
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[40,100,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(5)},readoutnode:{'ridge_param':[0.00000001,0.000001, 0.0001]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.2),'output_dim':[4,40],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.2),'_instance':range(1)},readoutnode:{'ridge_param':[0.00000001,0.000001, 0.0001]}}
     #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+    opt = Oger.evaluation.Optimizer(gridsearch_parameters, calcF1Score)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
@@ -145,41 +231,49 @@ if __name__ == '__main__':
     
     if gridsearch_parameters.has_key(readoutnode):
         opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param'),(reservoir, 'output_dim')],plot_variance=False)
+        pp.savefig()
+        opt.plot_results([(reservoir, '_instance'),(reservoir, 'spectral_radius'),(reservoir, 'input_scaling')],plot_variance=False)
+        pp.savefig()
     else:
         opt.plot_results([(reservoir, '_instance')],plot_variance=False)
         
-    pp.savefig()
     
     
     bestFlow = opt.get_optimal_flow(True)
     bestFlow.train(data)
     
     
-    prediction = bestFlow([b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]])
-    plt.figure(2)
-    plt.clf()
-    plt.subplot()
-    plt.title('Prediction on training')
-    plt.plot(prediction)
-    plt.subplot()
-    plt.plot(numpy.atleast_2d(b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1]))
-    plt.subplot()
-    plt.plot(b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]/numpy.max(b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]))
+
+    
+    nInputFiles = len(inputFiles)
+    fig, axes = plt.subplots(nInputFiles, 1)
+    plt.title('Prediction on training')  
+    i = 0 
+    for row in axes:
+        prediction = bestFlow([data[0][i][0]])
+        row.set_title(inputFiles[i])
+        row.plot(prediction)
+        row.plot(numpy.atleast_2d(data[0][i][1]))
+        i = i+1
+    #plt.plot(data[0][0][0])
     pp.savefig()
    
    
-    t_prediction = bestFlow([e.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]])
-    plt.figure()
-    plt.clf()
-    plt.subplot()
-    plt.title('Prediction on test')
-    plt.plot(t_prediction)
-    plt.subplot()
-    plt.plot(e.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
-    plt.subplot()
-    plt.plot(runningAverage(t_prediction, 10))
-    pp.savefig()
-      
+    for set in testSets:
+        t_prediction = bestFlow([set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]])
+        plt.figure()
+        plt.clf()
+        plt.subplot(211)
+        plt.title('Prediction on test')
+        plt.plot(t_prediction)
+        plt.plot(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
+        plt.subplot(212)
+        plt.title('Smoothed prediction')
+        plt.plot(runningAverage(t_prediction, 10))
+        plt.plot(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
+        print calcTPFP(t_prediction, set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
+        pp.savefig()
+          
    
    
     pp.close();  
@@ -188,18 +282,29 @@ if __name__ == '__main__':
        
 
 
-    result = [str(now),inputFileName,str(opt.get_minimal_error())]
+    result = [str(now),name,inputFiles,testFile,str(opt.get_minimal_error()[0])]
     result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc)])
+        
+        
+    for a in opt.get_minimal_error()[1].iterkeys():
+        result.append(a)
+        for attribute in opt.get_minimal_error()[1].get(a).iterkeys():
+            result.append(attribute)
+            result.append('['+str(opt.get_minimal_error()[1].get(a).get(attribute))+']')
+            
+            
 
 
-    
+
+
+    result.append('gridSpace:')
     for a in opt.optimization_dict.get(reservoir).iterkeys():
         result.append(a)
         result.append(opt.optimization_dict.get(reservoir).get(a))
     if(opt.optimization_dict.get(readoutnode) != None):
         for a in opt.optimization_dict.get(readoutnode).iterkeys():
             result.append(a)
-            result.append(opt.optimization_dict.get(readoutnode).get(a))
+            result.append(str(opt.optimization_dict.get(readoutnode).get(a)))
 
     result.extend(['paraList',opt.parameter_ranges])
     result.extend(['errors',numpy.array2string(opt.errors).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
