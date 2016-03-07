@@ -111,7 +111,7 @@ def calcSingleValueF1Score(input_signal, target_signal):
     return 1-score
 
 def calcF1Score(input_signal, target_signal):
-    treshold = 0.0
+    treshold = 0.5
     nDataPoints = len(input_signal.flatten())
     t_target = numpy.copy(target_signal)
     n_truePositive = 0
@@ -149,7 +149,7 @@ def calcF1Score(input_signal, target_signal):
     n_falseNegative = n_totalPositives - n_truePositive
     
     f1 = (2.*n_truePositive)/(2.*n_truePositive + n_falseNegative + n_falsePositive)
-            
+    print 1-f1   
     return 1-f1
 
 def startServer():
@@ -175,8 +175,7 @@ if __name__ == '__main__':
     useFused = True
     useGyro = True
     useAcc = True
-    global tresholdF1
-    tresholdF1 = 0.5
+    
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
@@ -219,9 +218,10 @@ if __name__ == '__main__':
     #data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
 
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.2),'output_dim':[4,40],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.2),'_instance':range(1)},readoutnode:{'ridge_param':[0.00000001,0.000001, 0.0001]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1),'output_dim':[4,100,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.00000001,0.000001,0.0001]}}
     #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, calcF1Score)
+    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, calcF1Score)
+    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
@@ -271,9 +271,8 @@ if __name__ == '__main__':
         plt.title('Smoothed prediction')
         plt.plot(runningAverage(t_prediction, 10))
         plt.plot(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
-        print calcTPFP(t_prediction, set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
+        print calcF1Score(t_prediction, set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
         pp.savefig()
-          
    
    
     pp.close();  
@@ -282,7 +281,7 @@ if __name__ == '__main__':
        
 
 
-    result = [str(now),name,inputFiles,testFile,str(opt.get_minimal_error()[0])]
+    result = [str(now),name,inputFiles,testFile,opt.loss_function,str(opt.get_minimal_error()[0])]
     result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc)])
         
         
