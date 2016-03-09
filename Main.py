@@ -18,6 +18,7 @@ from Server import *
 import threading
 import DataSet
 from sklearn.metrics import f1_score
+from Evaluation import * 
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -110,9 +111,9 @@ def calcSingleValueF1Score(input_signal, target_signal):
     score = f1_score(target_signal.astype('int'),bin_input_signal.astype('int'),average='binary')
     return 1-score
 
-def calcF1Score(input_signal, target_signal):
+def calcSingleGestureF1Score(input_signal, target_signal):
     treshold = 0.5
-    nDataPoints = len(input_signal.flatten())
+    nDataPoints = len(input_signal)
     t_target = numpy.copy(target_signal)
     n_truePositive = 0
     n_falsePositive = 0
@@ -152,6 +153,8 @@ def calcF1Score(input_signal, target_signal):
     print 1-f1   
     return 1-f1
 
+
+        
 def startServer():
     pass
 
@@ -168,13 +171,14 @@ def startServer():
 
 
 if __name__ == '__main__':
+    pass
 
-
-
+#def main():
 
     useFused = True
     useGyro = True
     useAcc = True
+    usedGestures = [0,1]
     
     plt.close('all')
     now = datetime.datetime.now()
@@ -185,7 +189,7 @@ if __name__ == '__main__':
     
     #inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz', 'stephan_0_2.npz','nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFile = 'daniel_0_0.npz'
+    testFiles = ['daniel_0_0.npz','stephan_0_0.npz','stephan_1_0.npz']
     
     pp = PdfPages(pdfFilePath)
     
@@ -201,25 +205,22 @@ if __name__ == '__main__':
     for iFile in inputFiles:
         set = DataSet.createDataSetFromFile(iFile)
         ds = DataSet.createDataSetFromFile('stephan_1_0.npz')
-        ds.targets = numpy.ones(ds.acc.shape) * (-1)
+        #ds.targets = numpy.ones(ds.acc.shape) * (-1)
         
-        dataStep.append((numpy.append(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[0], \
-                                     ds.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[0],0), \
-                         numpy.append(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1], \
-                                     ds.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1],0)))
+        dataStep.append((numpy.append(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
+                                     ds.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
+                         numpy.append(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1], \
+                                     ds.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0)))
     data = [dataStep,dataStep]
-    #a = DataSet.createDataSetFromFile('nadja_fitted_0.csv') broken muss rekonstruiert werden
-    #b = DataSet.createDataSetFromFile('nadja_0_1.npz')
-    #c = DataSet.createDataSetFromFile('nadja_0_2.npz')
-    #d = DataSet.createDataSetFromFile('nadja_0_3.npz')
-    testSets.append(DataSet.createDataSetFromFile(testFile))
-    testSets.append(DataSet.createDataSetFromFile('stephan_1_0.npz'))
-    
+
+
+    for iFile in testFiles:
+        testSets.append(DataSet.createDataSetFromFile(iFile))
     #data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
 
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1),'output_dim':[40,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.00000001,0.000001,0.0001]}}
-    #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
+    #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1),'output_dim':[40,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.00000001,0.000001,0.0001,0.1]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.2),'input_scaling': mdp.numx.arange(0.8, 1.2, 0.2),'output_dim':[40,4],'_instance':range(1)},readoutnode:{'ridge_param':[0.0001,0.1]}}
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, calcF1Score)
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
@@ -260,19 +261,31 @@ if __name__ == '__main__':
     pp.savefig()
    
    
-    for set in testSets:
-        t_prediction = bestFlow([set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[0]])
+   
+   
+    #---------------------------------------------------------------------------------------------------#
+    #----------------------------------------------TESTING----------------------------------------------#
+    #---------------------------------------------------------------------------------------------------#  
+   
+    confMatrices = []
+    for set, name in zip(testSets,testFiles):
+        t_prediction = bestFlow([set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]])
         plt.figure()
         plt.clf()
         plt.subplot(211)
         plt.title('Prediction on test')
         plt.plot(t_prediction)
-        plt.plot(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
         plt.subplot(212)
         plt.title('Smoothed prediction')
         plt.plot(runningAverage(t_prediction, 10))
-        plt.plot(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1])
-        print calcF1Score(t_prediction, set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        print name
+        cm = calcConfusionMatrix(t_prediction, set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        confMatrices.append(cm)
+        print cm
+        print calcF1ScoreFromConfusionMatrix(cm,True)
+        
         pp.savefig()
    
    
@@ -282,8 +295,8 @@ if __name__ == '__main__':
        
 
 
-    result = [str(now),name,inputFiles,testFile,opt.loss_function,str(opt.get_minimal_error()[0])]
-    result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc)])
+    result = [str(now),name,inputFiles,testFiles,opt.loss_function,str(opt.get_minimal_error()[0])]
+    result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc),'usedGestures',usedGestures])
         
         
     for a in opt.get_minimal_error()[1].iterkeys():

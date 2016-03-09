@@ -66,7 +66,7 @@ class DataSet(object):
     def getGyro(self):
         return self.gyro 
     
-    def getDataForTraining(self, classNr,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
+    def getDataForTraining(self, classNrs,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
         inputData = numpy.empty((0,0))
         if useFused:
             inputData = self.fused
@@ -82,10 +82,11 @@ class DataSet(object):
                 inputData = self.acc
             else:
                 inputData = numpy.append(inputData, self.acc, 1)
-        if self.gestures[classNr] == 1:
-            readOutTrainingData = numpy.atleast_2d(self.targets[:,targetNr]).T
-        else:
-            readOutTrainingData = numpy.atleast_2d(numpy.zeros((len(self.targets),1)))
+        
+        readOutTrainingData = numpy.zeros((len(inputData),len(classNrs)))
+        for classNr in classNrs:
+            readOutTrainingData[:,classNr] = self.targets[:,targetNr].T * self.gestures[classNr]
+        
         data = inputData
         target = readOutTrainingData
         for i in range(0,multiplier):
