@@ -203,10 +203,10 @@ if __name__ == '__main__':
         ds = DataSet.createDataSetFromFile('stephan_1_0.npz')
         ds.targets = numpy.ones(ds.acc.shape) * (-1)
         
-        dataStep.append((numpy.append(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0], \
-                                     ds.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0],0), \
-                         numpy.append(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1], \
-                                     ds.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1],0)))
+        dataStep.append((numpy.append(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[0], \
+                                     ds.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[0],0), \
+                         numpy.append(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1], \
+                                     ds.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1],0)))
     data = [dataStep,dataStep]
     #a = DataSet.createDataSetFromFile('nadja_fitted_0.csv') broken muss rekonstruiert werden
     #b = DataSet.createDataSetFromFile('nadja_0_1.npz')
@@ -218,7 +218,7 @@ if __name__ == '__main__':
     #data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
 
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1),'output_dim':[4,100,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.00000001,0.000001,0.0001]}}
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1),'output_dim':[40,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.00000001,0.000001,0.0001]}}
     #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.1),'input_scaling': mdp.numx.arange(0.8, 1.4, 0.1),'_instance':range(2)}}
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, calcF1Score)
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
@@ -226,12 +226,13 @@ if __name__ == '__main__':
     
 
     
-    plt.figure(3)
-    plt.clf()
+
     
     if gridsearch_parameters.has_key(readoutnode):
+        plt.figure()
         opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param'),(reservoir, 'output_dim')],plot_variance=False)
         pp.savefig()
+        plt.figure()
         opt.plot_results([(reservoir, '_instance'),(reservoir, 'spectral_radius'),(reservoir, 'input_scaling')],plot_variance=False)
         pp.savefig()
     else:
@@ -260,18 +261,18 @@ if __name__ == '__main__':
    
    
     for set in testSets:
-        t_prediction = bestFlow([set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[0]])
+        t_prediction = bestFlow([set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[0]])
         plt.figure()
         plt.clf()
         plt.subplot(211)
         plt.title('Prediction on test')
         plt.plot(t_prediction)
-        plt.plot(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1])
         plt.subplot(212)
         plt.title('Smoothed prediction')
         plt.plot(runningAverage(t_prediction, 10))
-        plt.plot(set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
-        print calcF1Score(t_prediction, set.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1])
+        print calcF1Score(t_prediction, set.getMinusPlusDataForTraining(0,useFused, useGyro, useAcc, 2)[1])
         pp.savefig()
    
    

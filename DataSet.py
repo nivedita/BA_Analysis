@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import csv
 from sklearn.cluster.mean_shift_ import MeanShift
 
+
 class DataSet(object):
     
     fused = numpy.empty((0,0))
@@ -65,7 +66,7 @@ class DataSet(object):
     def getGyro(self):
         return self.gyro 
     
-    def getDataForTraining(self, useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
+    def getDataForTraining(self, classNr,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
         inputData = numpy.empty((0,0))
         if useFused:
             inputData = self.fused
@@ -81,8 +82,10 @@ class DataSet(object):
                 inputData = self.acc
             else:
                 inputData = numpy.append(inputData, self.acc, 1)
-        readOutTrainingData = numpy.atleast_2d(self.targets[:,targetNr]).T
-        
+        if self.gestures[classNr] == 1:
+            readOutTrainingData = numpy.atleast_2d(self.targets[:,targetNr]).T
+        else:
+            readOutTrainingData = numpy.atleast_2d(numpy.zeros((len(self.targets),1)))
         data = inputData
         target = readOutTrainingData
         for i in range(0,multiplier):
@@ -91,10 +94,10 @@ class DataSet(object):
         return (data,target)
     
     
-    def getMinusPlusDataForTraining(self, useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
-        inputData, target = self.getDataForTraining(useFused, useGyro, useAcc, targetNr, multiplier)
+    def getMinusPlusDataForTraining(self, classNr ,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
+        inputData, target = self.getDataForTraining(classNr, useFused, useGyro, useAcc, targetNr, multiplier)
         low_values_indices = target == 0  # Where values are low
-        target[low_values_indices] = -1
+        target[low_values_indices] = -1   
         return (inputData,target)
         
         
