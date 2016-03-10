@@ -7,6 +7,7 @@ import mdp
 import csv
 from thread import start_new_thread
 import DataSet
+from DataAnalysis import plot
 
 def readFileToNumpy(fileName):
     reader=csv.reader(open(fileName,"rb"),delimiter=',')
@@ -163,9 +164,7 @@ if __name__ == '__main__':
     
 
 
-    plt.close('all')
-    plt.ion()
-    inputFileName = ["2016-03-07-10-57-09-stephan_1_0.csv"]
+    inputFileName = ["2016-03-10-12-16-13-stephan_01_2.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
@@ -173,28 +172,30 @@ if __name__ == '__main__':
         fileData = numpy.append(fileData,newData,0)
     
     fused, gyro, acc, targets = separateInputData(fileData)
-    
+    plot(acc)
+
     fused = transformToDelta(fused)
     fused = removeLOverflow(fused)
     
-    fused, f_means, f_stds = centerAndNormalize(fused)
-    gyro, g_means, g_stds = centerAndNormalize(gyro)
-    acc, a_means, a_stds = centerAndNormalize(acc)
+    _, f_means, f_stds = centerAndNormalize(fused)
+    _, g_means, g_stds = centerAndNormalize(gyro)
+    _, a_means, a_stds = centerAndNormalize(acc)
     
     means = numpy.concatenate((f_means,g_means,a_means),0)
     stds = numpy.concatenate((f_stds,g_stds,a_stds),0)
     gestures = numpy.max(targets,0)
     
     dataSets = []
+    gestureSets = []
     for i in range(0,len(targets[0])):
         start, end = getTrainingBeginAndEndIndex(targets[:,i])
         t_fused = fused[start:end,:]
         t_gyro = gyro[start:end,:]
         t_acc = acc[start:end,:]
         t_target =numpy.atleast_2d(targets[start:end,i]).T
-        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),7)
+        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),8)
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
-    
-    
-        
+        gestureSets.append(numpy.max(targets[start:end,:],0))
+    plotData(dataSets[0])
+    plotData(dataSets[1])    

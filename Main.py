@@ -7,6 +7,8 @@ Created on 17.02.2016
 
 import numpy
 import matplotlib
+
+
 import matplotlib.pyplot as plt
 import scipy
 import mdp
@@ -19,6 +21,10 @@ import threading
 import DataSet
 from sklearn.metrics import f1_score
 from Evaluation import * 
+import Evaluation
+import os
+from DataAnalysis import plot
+from DataAnalysis import subPlot
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -53,9 +59,10 @@ def separateInputData(fileData):
     return fused, gyro, acc, targets
 
 def runningAverage(inputData, width):
-    target = numpy.zeros((len(inputData),1))
+    inputData = numpy.atleast_2d(inputData)
+    target = numpy.zeros((inputData.shape))
     for i in range(width,len(inputData-width)):
-            target[i] = numpy.mean(inputData[i-width:i+width])
+            target[i,:] = numpy.mean(inputData[i-width:i+width,:],0)
     return target
 
 def writeToReportFile(text):
@@ -154,42 +161,44 @@ def calcSingleGestureF1Score(input_signal, target_signal):
     return 1-f1
 
 
-        
-def startServer():
+def showMissClassifiedGesture(testSetNr,act,pred):
+    mcInds = missClassifiedGestures[testSetNr][act][pred]
+    data = testSets[testSetNr].getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]
+    mcDatas = []
+    for mcInd in mcInds:
+        mcData = data[mcInd[0]:mcInd[1],:]
+        mcDatas.append(mcData)
+    subPlot(mcDatas[:5])
+
+
+
+def w_in_init_function(output_dim, input_dim):
+    print 'called'
+    w_in = numpy.ones((output_dim,input_dim))*0.1
+    return w_in
+
+
+def main(name):
     pass
-
-    #address = ('192.168.0.115', 11111) # let the kernel give us a port
-    #server = EchoServer(address, MyTCPHandler)
-    #ip, port = server.server_address # find out what port we were given
-
-    #t = threading.Thread(target=server.serve_forever)
-    #t.setDaemon(True) # don't hang on exit
-    #t.start()
-
-
-
-
 
 if __name__ == '__main__':
-    pass
-
-#def main():
-
     useFused = True
     useGyro = True
     useAcc = True
     usedGestures = [0,1]
     
+    name =input('name')
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
-    name = input('Name:')
     pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.pdf'
-    pdfFilePath = resultsPath+pdfFileName
-    
-    #inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz', 'stephan_0_2.npz','nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['daniel_0_0.npz','stephan_0_0.npz','stephan_1_0.npz']
+    pdfFilePath = resultsPath+'pdf\\'+pdfFileName
+    npzFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.npz'
+    npzFilePath = resultsPath+'npz\\'+npzFileName
+        
+    inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','stephan_0_2.npz']
+    #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
+    testFiles = ['stephan_0_0.npz','stephan_1_0.npz']
     
     pp = PdfPages(pdfFilePath)
     
@@ -202,9 +211,15 @@ if __name__ == '__main__':
     trainSets = []
     testSets = []
     dataStep = []
-    for iFile in inputFiles:
+    for iFile, counter in zip(inputFiles, range(0,len(inputFiles))):
         set = DataSet.createDataSetFromFile(iFile)
-        ds = DataSet.createDataSetFromFile('stephan_1_0.npz')
+        trainSets.append(set)
+        if counter % 3 == 0:
+            ds = DataSet.createDataSetFromFile('stephan_1_0.npz')
+        elif counter % 3 == 1:
+            ds = DataSet.createDataSetFromFile('stephan_1_1.npz')
+        else:
+            ds = DataSet.createDataSetFromFile('stephan_1_2.npz')
         #ds.targets = numpy.ones(ds.acc.shape) * (-1)
         
         dataStep.append((numpy.append(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
@@ -219,10 +234,25 @@ if __name__ == '__main__':
     #data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
 
-    #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1),'output_dim':[40,400],'input_scaling': mdp.numx.arange(1.5, 2.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.00000001,0.000001,0.0001,0.1]}}
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.2, 0.2),'input_scaling': mdp.numx.arange(0.8, 1.2, 0.2),'output_dim':[40,4],'_instance':range(1)},readoutnode:{'ridge_param':[0.0001,0.1]}}
-    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, calcF1Score)
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+
+
+
+
+
+
+
+
+
+
+
+    #---------------------------------------------------------------------------------------------------#
+    #--------------------------------------------GRIDSEARCH---------------------------------------------#
+    #---------------------------------------------------------------------------------------------------#  
+
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.2),'output_dim':[40,4],'input_scaling': mdp.numx.arange(0.1, 0.5, 0.2),'_instance':range(2)},readoutnode:{'ridge_param':[0.0000001,0.000001]}}
+    #gridsearch_parameters = {reservoir:{'w_in':[w_in_init_function,'blaa'],'spectral_radius':mdp.numx.arange(0.8, 1.2, 0.2),'_instance':range(1)},readoutnode:{'ridge_param':[0,0.0000001,0.000001]}}
+    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
+    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
@@ -231,10 +261,10 @@ if __name__ == '__main__':
     
     if gridsearch_parameters.has_key(readoutnode):
         plt.figure()
-        opt.plot_results([(reservoir, '_instance'),(readoutnode, 'ridge_param'),(reservoir, 'output_dim')],plot_variance=False)
+        opt.plot_results([(reservoir, '_instance'),(reservoir, 'output_dim'),(readoutnode, 'ridge_param')],plot_variance=False)
         pp.savefig()
         plt.figure()
-        opt.plot_results([(reservoir, '_instance'),(reservoir, 'spectral_radius'),(reservoir, 'input_scaling')],plot_variance=False)
+        opt.plot_results([(reservoir, '_instance'),(reservoir, 'output_dim'),(reservoir, 'spectral_radius')],plot_variance=False)
         pp.savefig()
     else:
         opt.plot_results([(reservoir, '_instance')],plot_variance=False)
@@ -268,7 +298,10 @@ if __name__ == '__main__':
     #---------------------------------------------------------------------------------------------------#  
    
     confMatrices = []
-    for set, name in zip(testSets,testFiles):
+    missClassifiedGestures = []
+    f1Scores = []
+    for set, setName in zip(testSets,testFiles):
+        #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
         t_prediction = bestFlow([set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]])
         plt.figure()
         plt.clf()
@@ -280,22 +313,39 @@ if __name__ == '__main__':
         plt.title('Smoothed prediction')
         plt.plot(runningAverage(t_prediction, 10))
         plt.plot(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
-        print name
-        cm = calcConfusionMatrix(t_prediction, set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
-        confMatrices.append(cm)
-        print cm
-        print calcF1ScoreFromConfusionMatrix(cm,True)
-        
         pp.savefig()
-   
+        print setName
+        cm, missClassified = calcConfusionMatrix(t_prediction, set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
+        confMatrices.append(cm)
+        missClassifiedGestures.append(missClassified)
+        f1Scores.append(f1)
+        plot_confusion_matrix(cm,['left','right','no gesture'],setName)
+        pp.savefig()
+        print cm
+        print f1
+        
+    
+    totalCm = confMatrices[0]
+    for cm in confMatrices[1:]:
+        totalCm = totalCm+cm
+    plot_confusion_matrix(totalCm,['left','right','no gesture'],'total confusion')    
+    pp.savefig()
    
     pp.close();  
     
     
-       
+    #---------------------------------------------------------------------------------------------------#
+    #-----------------------------------------------REPORT----------------------------------------------#
+    #---------------------------------------------------------------------------------------------------#  
 
 
-    result = [str(now),name,inputFiles,testFiles,opt.loss_function,str(opt.get_minimal_error()[0])]
+    result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
+              'TrainError',str(opt.get_minimal_error()[0]), 'testError']
+    for scores in f1Scores:
+        result.extend([numpy.array2string(scores).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
+    
+
     result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc),'usedGestures',usedGestures])
         
         
@@ -326,18 +376,19 @@ if __name__ == '__main__':
 
     
     result.append('=HYPERLINK(\"'+pdfFilePath+'\")')
+    result.append('=HYPERLINK(\"'+npzFilePath+'\")')
     
-    writeToReportFile(result)
+    if name != 'test':
+        writeToReportFile(result)
+        np.savez(npzFilePath,errors=opt.errors,testFiles=testFiles,confMatrices=confMatrices)
+    else:
+        os.remove(pdfFilePath)
     
-    #gridsearch_parameters = {reservoir:{'_instance':range(5), 'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.1)}}
-    #opt1D = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    #opt1D.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
-    #opt1D.plot_results([(reservoir, '_instance')])
-    
-    #gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.3, 0.2),'input_scaling': mdp.numx.arange(0.5, .8, 0.1),'_instance':range(5)}}
-    #opt2D = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    #errors = opt2D.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
-    #opt2D.plot_results([(reservoir, '_instance')])
 
+    
+
+def  la():
+    name = input('Name:')
+    main(name)
 
 

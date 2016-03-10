@@ -1,4 +1,4 @@
-import numpy
+import numpy as np
 import matplotlib.pyplot as plt
 import csv
 from sklearn.cluster.mean_shift_ import MeanShift
@@ -6,13 +6,13 @@ from sklearn.cluster.mean_shift_ import MeanShift
 
 class DataSet(object):
     
-    fused = numpy.empty((0,0))
-    gyro = numpy.empty((0,0))
-    acc  = numpy.empty((0,0))
-    targets = numpy.empty((0,0))
-    means = numpy.empty((0,0))
-    stds = numpy.empty((0,0))
-    gestures = numpy.empty((0,0))
+    fused = np.empty((0,0))
+    gyro = np.empty((0,0))
+    acc  = np.empty((0,0))
+    targets = np.empty((0,0))
+    means = np.empty((0,0))
+    stds = np.empty((0,0))
+    gestures = np.empty((0,0))
     
     
     def __init__(self, fused, gyro, acc, targets,means, stds, gestures):
@@ -55,7 +55,7 @@ class DataSet(object):
         plt.show()
         
     def getData(self):
-        return  numpy.concatenate((self.fused,self.gyro,self.acc,self.targets),1)
+        return  np.concatenate((self.fused,self.gyro,self.acc,self.targets),1)
     
     def getFused(self):
         return self.fused
@@ -66,34 +66,52 @@ class DataSet(object):
     def getGyro(self):
         return self.gyro 
     
-    def getDataForTraining(self, classNrs,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
-        inputData = numpy.empty((0,0))
+    def getDataForTraining(self, classNrs,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1, normalized = False):
+        inputData = np.empty((0,0))
+        stds = np.empty((0,0))
         if useFused:
             inputData = self.fused
-        
+            stds = self.stds[0:3]
         if useGyro:
             if len(inputData) == 0:
                 inputData = self.gyro
+                stds = self.stds[3:6]
             else:
-                inputData = numpy.append(inputData, self.gyro, 1)
+                inputData = np.append(inputData, self.gyro, 1)
+                stds = np.append(stds,self.stds[3:6],0)
             
         if useAcc:
             if len(inputData) == 0:
                 inputData = self.acc
+                stds = self.stds[6:9]
             else:
-                inputData = numpy.append(inputData, self.acc, 1)
+                inputData = np.append(inputData, self.acc, 1)
+                stds = np.append(stds,self.stds[6:9],0)
         
-        readOutTrainingData = numpy.zeros((len(inputData),len(classNrs)))
+        readOutTrainingData = np.zeros((len(inputData),len(classNrs)))
         for classNr in classNrs:
             readOutTrainingData[:,classNr] = self.targets[:,targetNr].T * self.gestures[classNr]
         
+        if normalized:
+            inputData = inputData/stds
         data = inputData
         target = readOutTrainingData
         for i in range(0,multiplier):
-            data = numpy.append(data,inputData,0)
-            target = numpy.append(target,readOutTrainingData,0)
+            data = np.append(data,inputData,0)
+            target = np.append(target,readOutTrainingData,0)
         return (data,target)
     
+    def getAllSignals(self, gesture, targetNr = 2):
+        signals = []
+        target = self.targets[:,targetNr]
+        if self.gestures[gesture] != 0:
+            changesT = np.where(target[:-1] != target[1:])[0] + 1
+            lastInd = 0
+            for ind in changesT:
+                if target[lastInd] == 1:
+                    signals.append(np.concatenate((self.fused[lastInd:ind,:],self.gyro[lastInd:ind,:],self.acc[lastInd:ind,:],np.atleast_2d(target[lastInd:ind]).T),1))
+                lastInd = ind
+        return signals
     
     def getMinusPlusDataForTraining(self, classNr ,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
         inputData, target = self.getDataForTraining(classNr, useFused, useGyro, useAcc, targetNr, multiplier)
@@ -102,13 +120,18 @@ class DataSet(object):
         return (inputData,target)
         
         
+    def unnormalize(self):
+        self.fused = np.add(np.multiply(self.fused,self.stds[0:3]),self.means[0:3])
+        self.gyro = np.add(np.multiply(self.gyro,self.stds[3:6]),self.means[3:6])
+        self.acc = np.add(np.multiply(self.acc,self.stds[6:9]),self.means[6:9])
+        
     def writeToFile(self, fileName):
-        numpy.savez("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName,  \
+        np.savez("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName,  \
                     fused=self.fused,gyro=self.gyro,acc=self.acc,targets=self.targets,means=self.means,stds=self.stds,gestures=self.gestures)
         
         
 def createDataSetFromFile(fileName):
-    data = numpy.load('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
+    data = np.load('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
     fused = data['fused']
     gyro = data['gyro']
     acc = data['acc']
@@ -117,4 +140,13 @@ def createDataSetFromFile(fileName):
     stds = data['stds']
     gestures = data['gestures']
     return DataSet(fused, gyro, acc, targets,means, stds, gestures)
+
+
+#def appendDataSets(ds1, ds2):
+#    fused = np.append(ds1.fused, ds2.fused, 0)
+#    gyro = np.append(ds1.gyro, ds2.gyro, 0)
+#    acc =  np.append(ds1.acc, ds2.acc, 0)
+#    targets = np.append(ds1.targets, ds2.targets, 0)
+#    gestures = np.max(np.append(np.atleast_2d(ds1.gestures),np.atleast_2d(ds2.gestures),0),0)
+#    return DataSet(fused, gyro, acc, targets,[], [], gestures)
     

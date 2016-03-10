@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import *
+from gettext import ngettext
 
 def mergePredictions(predictions, addTreshold=False, treshold=0.5, plot=False):
     if addTreshold:
@@ -21,13 +22,13 @@ def mergePredictions(predictions, addTreshold=False, treshold=0.5, plot=False):
 def calcConfusionMatrix(input_signal,target_signal):
     nGestures = len(target_signal[0])
     valsP, indsP = mergePredictions(input_signal, True)
-    valsT, indsT = mergePredictions(target_signal, True,0.5,True)
+    valsT, indsT = mergePredictions(target_signal, True)
     changesP = np.where(indsP[:-1] != indsP[1:])[0] + 1  # indexes where predicted gesture changes 
     changesT = np.where(indsT[:-1] != indsT[1:])[0] + 1  # indexes where actual gesture changes
     
     
     detections = []
-    
+    classifiedGestures = [[[] for x in range(nGestures+1)] for x in range(nGestures+1)] 
     # fuer jedes segment, auch wenn gerade keine gestge stattfindet
     lastInd = 0
     for ind in changesT:  
@@ -35,22 +36,19 @@ def calcConfusionMatrix(input_signal,target_signal):
         cur_indsP = indsP[lastInd:ind]
         cur_valsT = valsT[lastInd:ind]
         cur_indsT = indsT[lastInd:ind]
-        #if ind < 400:
-        #    plt.figure()
-        #    plt.plot(cur_valsP, color='g')
-        #    plt.plot(cur_valsT, color='r')
-        #    plt.plot(cur_indsP, color='b')
-            
+
         occurences = np.bincount(cur_indsP, None, nGestures+1) # +1 wegen "keine geste"
         detectedGesture = np.argmax(occurences)
         actualGesture = cur_indsT[0]
+        
+        classifiedGestures[actualGesture][detectedGesture].append((lastInd,ind))
         detections.append((detectedGesture,actualGesture))
         lastInd = ind
     
     confusionMatrix = np.zeros((nGestures+1,nGestures+1)) # +1 wegen "keine geste"
     for det, act in detections:
         confusionMatrix[act][det] = confusionMatrix[act][det] + 1
-    return confusionMatrix
+    return confusionMatrix, classifiedGestures
     
     
 def calcF1ScoreFromConfusionMatrix(cm, replaceNan = True):
@@ -60,24 +58,46 @@ def calcF1ScoreFromConfusionMatrix(cm, replaceNan = True):
         fp = np.sum(cm[:,i])-tp
         fn = np.sum(cm[i,:])-tp
         f1Scores[i]= (2.*tp)/(2.*tp+ fn+ fp)
-    
+    occurences = np.sum(cm,1)
     #replace nan
-    mean = np.mean(f1Scores[np.invert(np.isnan(f1Scores))])
-    f1Scores[np.isnan(f1Scores)]=mean
+    if replaceNan:
+        mean = np.mean(f1Scores[np.invert(np.isnan(f1Scores))])
+        f1Scores[np.isnan(f1Scores)]=mean
+    return f1Scores, occurences
+
+
+def calc1MinusF1Average(input_signal,target_signal):
+    cm, _ = calcConfusionMatrix(input_signal, target_signal)
+    f1Scores, _ = calcF1ScoreFromConfusionMatrix(cm)
+    return 1-np.mean(f1Scores)
     
-    return f1Scores 
+    
 
 
-def plot_confusion_matrix(cm, title='Confusion matrix', cmap=cm.Blues):
+def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
+    plt.figure()
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
-    #tick_marks = np.arange(len(iris.target_names))
-    #plt.xticks(tick_marks, iris.target_names, rotation=45)
-    #plt.yticks(tick_marks, iris.target_names)
+    if gestures is not None:
+        tick_marks = np.arange(len(gestures))
+        plt.xticks(tick_marks, gestures, rotation=45)
+        plt.yticks(tick_marks, gestures)
+    
+
+    ind_array = np.arange(0, len(cm), 1)
+    x, y = np.meshgrid(ind_array, ind_array)
+
+    for x_val, y_val in zip(x.flatten(), y.flatten()):
+        c = str(cm[y_val,x_val])
+        plt.text(x_val, y_val, c, va='center', ha='center')
+    
+    
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+    
+    
 
 def countTargetAndPredictedSignalsPerGesture(input_signal,target_signal):
     results = []
