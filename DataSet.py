@@ -114,7 +114,7 @@ class DataSet(object):
         return signals
     
     def getMinusPlusDataForTraining(self, classNr ,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
-        inputData, target = self.getDataForTraining(classNr, useFused, useGyro, useAcc, targetNr, multiplier)
+        inputData, target = self.getDataForTraining(classNr, useFused, useGyro, useAcc, targetNr, multiplier, True)
         low_values_indices = target == 0  # Where values are low
         target[low_values_indices] = -1   
         return (inputData,target)

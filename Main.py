@@ -178,16 +178,17 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-def main(name):
+def main(name, useFused, useGyro, useAcc):
     pass
 
 if __name__ == '__main__':
+    name = input('name')
     useFused = True
     useGyro = True
     useAcc = True
+    normalized = True
     usedGestures = [0,1]
-    
-    name =input('name')
+
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
@@ -198,7 +199,7 @@ if __name__ == '__main__':
         
     inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','stephan_0_2.npz']
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['stephan_0_0.npz','stephan_1_0.npz']
+    testFiles = ['lana_0_0.npz','lana_1_0.npz']
     
     pp = PdfPages(pdfFilePath)
     
@@ -249,11 +250,14 @@ if __name__ == '__main__':
     #--------------------------------------------GRIDSEARCH---------------------------------------------#
     #---------------------------------------------------------------------------------------------------#  
 
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.2),'output_dim':[40,4],'input_scaling': mdp.numx.arange(0.1, 0.5, 0.2),'_instance':range(2)},readoutnode:{'ridge_param':[0.0000001,0.000001]}}
-    #gridsearch_parameters = {reservoir:{'w_in':[w_in_init_function,'blaa'],'spectral_radius':mdp.numx.arange(0.8, 1.2, 0.2),'_instance':range(1)},readoutnode:{'ridge_param':[0,0.0000001,0.000001]}}
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
+    ######
+    #    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[1,40,400,401],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.0000001,0.000001,0.00001,0.001]}}
+    ######
+    
+    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.2),'output_dim':[1,40],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.4),'_instance':range(2)},readoutnode:{'ridge_param':[0.0000001,0.000001]}}
+    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
+    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
     
 
     
@@ -264,7 +268,7 @@ if __name__ == '__main__':
         opt.plot_results([(reservoir, '_instance'),(reservoir, 'output_dim'),(readoutnode, 'ridge_param')],plot_variance=False)
         pp.savefig()
         plt.figure()
-        opt.plot_results([(reservoir, '_instance'),(reservoir, 'output_dim'),(reservoir, 'spectral_radius')],plot_variance=False)
+        opt.plot_results([(reservoir, '_instance'),(reservoir, 'input_scaling'),(reservoir, 'spectral_radius')],plot_variance=False)
         pp.savefig()
     else:
         opt.plot_results([(reservoir, '_instance')],plot_variance=False)
@@ -275,22 +279,30 @@ if __name__ == '__main__':
     bestFlow.train(data)
     
     
+    #---------------------------------------------------------------------------------------------------#
+    #---------------------------------------------TRAIN EVAL--------------------------------------------#
+    #---------------------------------------------------------------------------------------------------# 
 
     
     nInputFiles = len(inputFiles)
     fig, axes = plt.subplots(nInputFiles, 1)
+    
     plt.title('Prediction on training')  
     i = 0 
+    trainCms = []
     for row in axes:
         prediction = bestFlow([data[0][i][0]])
         row.set_title(inputFiles[i])
         row.plot(prediction)
         row.plot(numpy.atleast_2d(data[0][i][1]))
+        trainCms.append(calcConfusionMatrix(prediction, data[0][i][1])[0])
         i = i+1
     #plt.plot(data[0][0][0])
     pp.savefig()
    
-   
+    for fileName,trainCm in zip(inputFiles,trainCms):
+        plot_confusion_matrix(trainCm, ['left','right','no gest'], 'trainging: '+fileName)
+        pp.savefig()
    
    
     #---------------------------------------------------------------------------------------------------#
@@ -329,7 +341,7 @@ if __name__ == '__main__':
     totalCm = confMatrices[0]
     for cm in confMatrices[1:]:
         totalCm = totalCm+cm
-    plot_confusion_matrix(totalCm,['left','right','no gesture'],'total confusion')    
+    plot_confusion_matrix(totalCm,['left','right','no gesture'],'total test confusion')    
     pp.savefig()
    
     pp.close();  
@@ -387,8 +399,18 @@ if __name__ == '__main__':
 
     
 
-def  la():
-    name = input('Name:')
-    main(name)
-
-
+def bla():
+#if __name__ == '__main__':
+    #main('a_NMSE_F',True,False,False)
+    #print 'one done'
+    #main('a_NMSE_G',False,True,False)  
+    #print 'two done'
+    main('a_NMSE_A',False,False,True)  
+    print '3 done' 
+    main('a_NMSE_FA',True,False,True)
+    print '4 done'
+    main('a_NMSE_FG',True,True,False)
+    print '5 done'
+    main('a_NMSE_AG',False,True,True)
+    print '6 done'   
+    

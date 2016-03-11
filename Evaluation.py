@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import *
 from gettext import ngettext
 
-def mergePredictions(predictions, addTreshold=False, treshold=0.5, plot=False):
+def mergePredictions(predictions, addTreshold=False, treshold=0.0, plot=False):
     if addTreshold:
         predictions = np.append(predictions, np.ones((len(predictions),1))*treshold, 1)
     vals = np.max(predictions,1)
