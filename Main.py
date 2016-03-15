@@ -25,6 +25,7 @@ import Evaluation
 import os
 from DataAnalysis import plot
 from DataAnalysis import subPlot
+from SparseNode import SparseNode
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -173,8 +174,13 @@ def showMissClassifiedGesture(testSetNr,act,pred):
 
 
 def w_in_init_function(output_dim, input_dim):
-    print 'called'
-    w_in = numpy.ones((output_dim,input_dim))*0.1
+    w_in = numpy.ones((output_dim,input_dim))*1.7
+    rand = np.random.random(w_in.shape)<0.8
+    w_in[rand]= 0
+    
+    for i in range(input_dim):
+        w_in[np.random.randint(output_dim),i]=1.7
+
     return w_in
 
 
@@ -196,15 +202,21 @@ if __name__ == '__main__':
     pdfFilePath = resultsPath+'pdf\\'+pdfFileName
     npzFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.npz'
     npzFilePath = resultsPath+'npz\\'+npzFileName
+    resNodePath = resultsPath+'nodes\\'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
+    readNodePath = resultsPath+'nodes\\'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
+    
+    
         
-    inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','stephan_0_2.npz']
+    inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','julian_0_0.npz','julian_0_1.npz']
+    secondInputFiles = ['stephan_1_0.npz','stephan_1_1.npz','julian_1_0.npz','julian_1_1.npz']
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['lana_0_0.npz','lana_1_0.npz']
+    testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
     
     pp = PdfPages(pdfFilePath)
     
         
-    reservoir = Oger.nodes.ReservoirNode()
+    #reservoir = Oger.nodes.ReservoirNode()
+    reservoir = SparseNode()
     readoutnode = Oger.nodes.RidgeRegressionNode()
     flow = mdp.Flow( [reservoir,readoutnode])
 
@@ -213,14 +225,10 @@ if __name__ == '__main__':
     testSets = []
     dataStep = []
     for iFile, counter in zip(inputFiles, range(0,len(inputFiles))):
+        print counter
         set = DataSet.createDataSetFromFile(iFile)
         trainSets.append(set)
-        if counter % 3 == 0:
-            ds = DataSet.createDataSetFromFile('stephan_1_0.npz')
-        elif counter % 3 == 1:
-            ds = DataSet.createDataSetFromFile('stephan_1_1.npz')
-        else:
-            ds = DataSet.createDataSetFromFile('stephan_1_2.npz')
+        ds = DataSet.createDataSetFromFile(secondInputFiles[counter])
         #ds.targets = numpy.ones(ds.acc.shape) * (-1)
         
         dataStep.append((numpy.append(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
@@ -251,29 +259,34 @@ if __name__ == '__main__':
     #---------------------------------------------------------------------------------------------------#  
 
     ######
-    #    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[1,40,400,401],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.0000001,0.000001,0.00001,0.001]}}
+    #   gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[1,40,400,401],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.0000001,0.000001,0.00001,0.001]}}
     ######
     
-    gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.2),'output_dim':[1,40],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.4),'_instance':range(2)},readoutnode:{'ridge_param':[0.0000001,0.000001]}}
-    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+    gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
+                                        'spectral_radius':mdp.numx.arange(0.1, 1.1, 0.2), \
+                                        'output_dim':[100,400,800], \
+                                        'input_scaling': mdp.numx.arange(0.01, 0.26, 0.05), \
+                                        '_instance':range(3)}, \
+                             readoutnode:{'ridge_param':[0.0000001,0.00001,0.1,1,100]}}
+    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
+    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
     
 
     
 
     
-    if gridsearch_parameters.has_key(readoutnode):
-        plt.figure()
-        opt.plot_results([(reservoir, '_instance'),(reservoir, 'output_dim'),(readoutnode, 'ridge_param')],plot_variance=False)
-        pp.savefig()
-        plt.figure()
-        opt.plot_results([(reservoir, '_instance'),(reservoir, 'input_scaling'),(reservoir, 'spectral_radius')],plot_variance=False)
-        pp.savefig()
-    else:
-        opt.plot_results([(reservoir, '_instance')],plot_variance=False)
+#    if gridsearch_parameters.has_key(readoutnode):
+#        plt.figure()
+#        opt.plot_results([(reservoir, '_instance'),(reservoir, 'output_dim'),(readoutnode, 'ridge_param')],plot_variance=False)
+#        pp.savefig()
+#        plt.figure()
+#        opt.plot_results([(reservoir, '_instance'),(reservoir, 'input_scaling'),(reservoir, 'spectral_radius')],plot_variance=False)
+#        pp.savefig()
+#    else:
+#        opt.plot_results([(reservoir, '_instance')],plot_variance=False)
         
-    
+    plotMinErrors(opt.errors, opt.parameters, opt.parameter_ranges, pp)
     
     bestFlow = opt.get_optimal_flow(True)
     bestFlow.train(data)
@@ -286,7 +299,7 @@ if __name__ == '__main__':
     
     nInputFiles = len(inputFiles)
     fig, axes = plt.subplots(nInputFiles, 1)
-    
+    plt.tight_layout()
     plt.title('Prediction on training')  
     i = 0 
     trainCms = []
@@ -300,9 +313,12 @@ if __name__ == '__main__':
     #plt.plot(data[0][0][0])
     pp.savefig()
    
+   
+    
     for fileName,trainCm in zip(inputFiles,trainCms):
         plot_confusion_matrix(trainCm, ['left','right','no gest'], 'trainging: '+fileName)
         pp.savefig()
+   
    
    
     #---------------------------------------------------------------------------------------------------#
@@ -353,9 +369,7 @@ if __name__ == '__main__':
 
 
     result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
-              'TrainError',str(opt.get_minimal_error()[0]), 'testError']
-    for scores in f1Scores:
-        result.extend([numpy.array2string(scores).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
+              'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
     
 
     result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc),'usedGestures',usedGestures])
@@ -382,7 +396,7 @@ if __name__ == '__main__':
             result.append(str(opt.optimization_dict.get(readoutnode).get(a)))
 
     result.extend(['paraList',opt.parameter_ranges])
-    result.extend(['errors',numpy.array2string(opt.errors).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
+    #result.extend(['errors',numpy.array2string(opt.errors).replace('\n', ',').replace('  ',',').replace(',,',',').replace(',,',',')])
     
 
 
@@ -392,11 +406,13 @@ if __name__ == '__main__':
     
     if name != 'test':
         writeToReportFile(result)
-        np.savez(npzFilePath,errors=opt.errors,testFiles=testFiles,confMatrices=confMatrices)
+        np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,testFiles=testFiles,confMatrices=confMatrices,f1Scores=f1Scores)
     else:
         os.remove(pdfFilePath)
     
-
+    a =  bestFlow[0].save(None)
+    
+    b = bestFlow[1].save(None)
     
 
 def bla():
@@ -405,12 +421,13 @@ def bla():
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  
     #print 'two done'
-    main('a_NMSE_A',False,False,True)  
-    print '3 done' 
-    main('a_NMSE_FA',True,False,True)
-    print '4 done'
+    #main('a_NMSE_A',False,False,True)  
+    #print '3 done' 
+    #main('a_NMSE_FA',True,False,True)
+    #print '4 done'
     main('a_NMSE_FG',True,True,False)
     print '5 done'
     main('a_NMSE_AG',False,True,True)
     print '6 done'   
     
+ 

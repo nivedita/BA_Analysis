@@ -10,6 +10,7 @@ from sklearn.manifold.t_sne import TSNE
 from sklearn.manifold.spectral_embedding_ import SpectralEmbedding
 from sklearn.manifold.mds import MDS
 import time
+from numpy import argmax
 
 
 def plotMDS():
@@ -55,20 +56,30 @@ def plotMDS():
 
 
     
-def plotRes(res,signal,targets=None):
-    
+def plotRes(res,input_signal,targets=None,artTrainingData=False):
+#if __name__ == '__main__':    
     print
     print '--------------------------------------------------'
     print
     
-
+    signal = np.copy(input_signal)
     
+    if artTrainingData:
+        trainingData = np.zeros((signal.shape[1]*100,signal.shape[1]))
+        for i in range(0,signal.shape[1]):
+            for j in range(0,10):
+                trainingData[i*100+j*10][i] = 1
+    else:
+        trainingData = signal
+            
+    
+    signal[:,3:9]=0
     
 
     #signal = np.concatenate([signal, signal, signal],0)
-    res.execute(signal)
+    res.execute(trainingData)
     
-    print 'total activity:'+str(np.sum(np.abs(res.states),1))
+    #print 'total activity:'+str(np.sum(np.abs(res.states),1))
     
     data = np.copy(res.states).T
     max=np.max(np.abs(data))
@@ -81,35 +92,76 @@ def plotRes(res,signal,targets=None):
     
     
     res.execute(np.atleast_2d(signal[0,:]))
-    fig = plt.figure(1)
-    plt.clf
-    plt.scatter(pos[:,0],pos[:,1],c=res.states,cmap='BrBG',vmin=-1, vmax=1,marker='o',s=200)
-    plt.colorbar()
+    fig = plt.figure()
+    neuronFig = plt.subplot2grid((2,2), (0,0), 2,1)
+    mapable = neuronFig.scatter(pos[:,0],pos[:,1],c=res.states,cmap='BrBG',vmin=-1, vmax=1,marker='o',s=200)
+    fig.colorbar(mapable)
+    inputFig = fig.add_subplot(222)
+    targetFig = fig.add_subplot(224)
+
+    inputFig.set_ylim([-2, 2])
+
+    
+
+    #plt.colorbar()
     plt.waitforbuttonpress()
-    print 'total activity:'+str(np.sum(np.abs(res.states)))
-    for i in range(1,100):
-        res.execute(np.atleast_2d(signal[i,:]))
-        states = res.states[0,:]
+    res.execute(np.atleast_2d(signal))
+        
+    #print 'total activity:'+str(np.sum(np.abs(res.states)))
+    plotSeq= range(30,90)
+    plotSeq.extend(range(3000,3060))
+    for i in plotSeq:
+        print res.states
+        #res.execute(np.atleast_2d(signal[i,:]))
+        
+        states = res.states[i,:]
+        
+        neuronFig.cla()
+        targetFig.cla()
+        
+        
+        neuronFig.set_title('Reservoir acitivity')
+        neuronFig.scatter(pos[:,0],pos[:,1],c=states,cmap='BrBG',vmin=-max, vmax=max,marker='o',s=200)
+        
         #print states
         if targets is not None:
             if np.max(targets[i,:]) == 1: 
                 fig.patch.set_facecolor('white')
-                plt.text(20, 20, 'gesture', fontsize=12)
+                targetFig.text(np.min([30,i]), targetFig.get_ylim()[1]-1, 'gesture ' + str(np.argmax(targets[i,:])), fontsize=20)
             else: 
                 fig.patch.set_facecolor('grey')
-                plt.title('')
-            print str(i) + '    total activity:    '+str(np.sum(np.abs(states)))+'    '+ str(targets[i,:])
+                targetFig.text(np.min([30,i]), targetFig.get_ylim()[1]-1, 'no gesture', fontsize=20)
+                
+            #print str(i) + '    total activity:    '+str(np.sum(np.abs(states)))+'    '+ str(targets[i,:])
         else:
-            print str(i) + '    total activity:    '+str(np.sum(np.abs(states)))
-        plt.clf()
-        plt.scatter(pos[:,0],pos[:,1],c=states,cmap='BrBG',vmin=-max, vmax=max,marker='o',s=200)
-        plt.colorbar()
+            #print str(i) + '    total activity:    '+str(np.sum(np.abs(states)))
+            pass
+        #plt.colorbar()
+        startInd = np.max([i-30,0])
+        endInd =  np.min([i+30,len(signal)])
         
-        if i % 10 == 0:
-            plt.waitforbuttonpress()
+        
+        inputFig.cla()
+        inputFig.set_title('Input signal')
+        inputFig.plot(signal[startInd:endInd,:])
+        inputFig.plot([np.min([30,i]),np.min([30,i])],[-10,10],linestyle='-')
+        inputFig.set_ylim([-10, 10])
+        inputFig.set_xlim([0, 60])
+        
+        targetFig.set_title('Target signal')
+        targetFig.plot(targets[startInd:endInd,:])
+        targetFig.plot([np.min([30,i]),np.min([30,i])],[-2,2],linestyle='-')
+        targetFig.set_ylim([-2, 2])
+        targetFig.set_xlim([0, 60])
+        
+        
+        
+        if i % 40 == 0:
+            #plt.waitforbuttonpress()
+            pass
         
         plt.draw()
-        time.sleep(0.1)
+        time.sleep(0.01)
         plt.pause(0.0001) 
     plt.show()
     

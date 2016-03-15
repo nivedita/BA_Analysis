@@ -92,7 +92,6 @@ def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Bl
         c = str(cm[y_val,x_val])
         plt.text(x_val, y_val, c, va='center', ha='center')
     
-    
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
@@ -124,3 +123,37 @@ def countTargetAndPredictedSignalsPerGesture(input_signal,target_signal):
             i = i+1
         results.append((n_totalTarget, n_totalPredicted))
     return results
+
+
+
+
+   
+def plotMinErrors(errs, params,ranges,pp):
+    minVal = np.min(errs)
+    min_ind = np.unravel_index(errs.argmin(), errs.shape)
+    for i in range(0,len(min_ind)):
+        for j in range(i,len(min_ind)):
+            if(j != i and errs.shape[i] > 1 and errs.shape[j] > 1 and \
+                params[i][1] != '_instance' and params[j][1] != '_instance' ):
+                minAxes = range(0,len(min_ind))
+                minAxes.remove(i)
+                minAxes.remove(j)
+                mins = np.min(errs,tuple(minAxes))
+                plt.figure()
+                plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=minVal, vmax=1)
+                plt.xlabel(params[j][1])
+                plt.ylabel(params[i][1])
+                
+                plt.colorbar()
+                if ranges is not None:
+                    tick_marks = np.arange(len(mins[0]))
+                    plt.xticks(tick_marks, ranges[j], rotation=45)
+                    tick_marks = np.arange(len(mins))
+                    plt.yticks(tick_marks, ranges[i])
+                plt.tight_layout()
+                
+                if pp is not None:
+                    pp.savefig()
+                #plot_confusion_matrix(cm, gestures, title, cmap)
+        #TODO:plot all dims
+    

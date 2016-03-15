@@ -164,7 +164,7 @@ if __name__ == '__main__':
     
 
 
-    inputFileName = ["2016-03-10-16-22-12-lana_01_0.csv"]
+    inputFileName = ["2016-03-13-19-29-04-julian_full_set.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
@@ -193,9 +193,14 @@ if __name__ == '__main__':
         t_gyro = gyro[start:end,:]
         t_acc = acc[start:end,:]
         t_target =numpy.atleast_2d(targets[start:end,i]).T
-        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),4)
+        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),5)
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
         gestureSets.append(numpy.max(targets[start:end,:],0))
     plotData(dataSets[0])
     plotData(dataSets[1])    
+    plotData(dataSets[2])    
+    plotData(dataSets[3])    
+    plotData(dataSets[4])    
+    plotData(dataSets[5])    
+    
