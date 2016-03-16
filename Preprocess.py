@@ -1,6 +1,7 @@
 
 import numpy
 import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import scipy
 import mdp
@@ -8,7 +9,7 @@ import csv
 from thread import start_new_thread
 import DataSet
 from DataAnalysis import plot
-from BA_Analysis.Main import getProjectPath
+from Main import getProjectPath
 
 def readFileToNumpy(fileName):
     reader=csv.reader(open(fileName,"rb"),delimiter=',')
@@ -194,7 +195,7 @@ if __name__ == '__main__':
         t_gyro = gyro[start:end,:]
         t_acc = acc[start:end,:]
         t_target =numpy.atleast_2d(targets[start:end,i]).T
-        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),5)
+        t_accFilter = applyActivationFilter(numpy.concatenate((t_fused,t_gyro,t_acc),1),3)
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
         gestureSets.append(numpy.max(targets[start:end,:],0))

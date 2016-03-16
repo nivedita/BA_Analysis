@@ -2,6 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import *
 from gettext import ngettext
+from matplotlib.backends.backend_pdf import PdfPages
+from scipy.signal._peak_finding import argrelextrema
 
 def mergePredictions(predictions, addTreshold=False, treshold=0.0, plot=False):
     if addTreshold:
@@ -125,7 +127,12 @@ def countTargetAndPredictedSignalsPerGesture(input_signal,target_signal):
     return results
 
 
-
+def plotMinErrorsToFIle(opt):
+    pdfFileName = 'minErrors.pdf'
+    pdfFilePath = getProjectPath()+'results/pdf/'+pdfFileName
+    pp = PdfPages(pdfFilePath)
+    plotMinErrors(opt.errors, opt.parameters, opt.parameter_ranges, pp)
+    pp.close()
 
    
 def plotMinErrors(errs, params,ranges,pp):
@@ -156,4 +163,18 @@ def plotMinErrors(errs, params,ranges,pp):
                     pp.savefig()
                 #plot_confusion_matrix(cm, gestures, title, cmap)
         #TODO:plot all dims
+    
+
+def getMinima(errs, nr=-1):
+    
+    inds = argrelextrema(errs, np.less,order=1, mode='wrap')
+    indTable = np.zeros((len(inds[0]),len(errs.shape)))
+    for i in range(0,len(inds)):
+        indTable[:,i] = inds[i]
+    if nr == -1:
+        return indTable
+    else:
+        return indTable[nr,:]
+    
+
     

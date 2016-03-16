@@ -7,7 +7,7 @@ Created on 17.02.2016
 
 import numpy
 import matplotlib
-
+matplotlib.use('TkAgg')
 
 import matplotlib.pyplot as plt
 import scipy
@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -189,7 +189,7 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-def main(name, useFused, useGyro, useAcc):
+def main():
     #pass
 
 #if __name__ == '__main__':
@@ -200,7 +200,7 @@ def main(name, useFused, useGyro, useAcc):
     useGyro = True
     useAcc = True
     normalized = False
-    usedGestures = [0,1]
+    usedGestures = [0,1,2,3,4,5]
 
     plt.close('all')
     now = datetime.datetime.now()
@@ -214,8 +214,13 @@ def main(name, useFused, useGyro, useAcc):
     
     
         
-    inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','julian_0_0.npz','julian_0_1.npz','nike_0_0.npz','nike_0_1.npz']
-    secondInputFiles = ['stephan_1_0.npz','stephan_1_1.npz','julian_1_0.npz','julian_1_1.npz','nike_1_0.npz','nike_1_1.npz']
+    inputFiles =        ['julian_0_fullSet.npz','nike_0_fullSet.npz']
+    secondInputFiles =  ['julian_1_fullSet.npz','nike_1_fullSet.npz']
+    thirdInputFiles =   ['julian_2_fullSet.npz','nike_2_fullSet.npz']
+    fourthInputFiles =  ['julian_3_fullSet.npz','nike_3_fullSet.npz']
+    fithInputFiles =    ['julian_4_fullSet.npz','nike_4_fullSet.npz']
+    sixInputFiles =     ['julian_5_fullSet.npz','nike_5_fullSet.npz']
+    
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
     
@@ -233,16 +238,28 @@ def main(name, useFused, useGyro, useAcc):
     dataStep = []
     for iFile, counter in zip(inputFiles, range(0,len(inputFiles))):
         print counter
-        set = DataSet.createDataSetFromFile(iFile)
-        trainSets.append(set)
-        ds = DataSet.createDataSetFromFile(secondInputFiles[counter])
-        trainSets.append(ds)
-        #ds.targets = numpy.ones(ds.acc.shape) * (-1)
+        ds0 = DataSet.createDataSetFromFile(iFile)
+        trainSets.append(ds0)
+        ds1 = DataSet.createDataSetFromFile(secondInputFiles[counter])
+        trainSets.append(ds1)
+        ds2 = DataSet.createDataSetFromFile(thirdInputFiles[counter])
+        trainSets.append(ds2)
         
-        dataStep.append((numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
-                                     ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
-                         numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1], \
-                                     ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0)))
+        ds3 = DataSet.createDataSetFromFile(fourthInputFiles[counter])
+        trainSets.append(ds3)
+        
+        ds4 = DataSet.createDataSetFromFile(fithInputFiles[counter])
+        trainSets.append(ds4)
+        
+        ds5 = DataSet.createDataSetFromFile(sixInputFiles[counter])
+        trainSets.append(ds5)
+        
+        #ds.targets = numpy.ones(ds.acc.shape) * (-1)
+        dataStep.append(DataSet.appendDS([ds0,ds1,ds2,ds3,ds4,ds5], usedGestures, useFused, useGyro, useAcc))
+        #dataStep.append((numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
+        #                             ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
+        #                 numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1], \
+        #                             ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0)))
     data = [dataStep,dataStep]
 
 
@@ -271,15 +288,15 @@ def main(name, useFused, useGyro, useAcc):
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
-                                        'inputSignals':['FGA','FG','FA','GA'], \
-                                        'spectral_radius':mdp.numx.arange(0.9, 1.0, 0.05), \
-                                        'output_dim':[100,400], \
+                                        'inputSignals':['FGA','AG','A'], \
+                                        'spectral_radius':mdp.numx.arange(0.05, 1.0, 0.1), \
+                                        'output_dim':[10,400,800], \
                                         'input_scaling':[0.01,0.1,1,1.7], \
                                         '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':[0.0001,0.11]}}
+                             readoutnode:{'ridge_param':[0.00001,0.001,0.11,1]}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
-    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
+    opt.grid_search(data, flow, n_folds=2, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
     
 
     
@@ -416,7 +433,9 @@ def main(name, useFused, useGyro, useAcc):
     if name != 'test':
         writeToReportFile(result)
         np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,testFiles=testFiles,\
-                 confMatrices=confMatrices,f1Scores=f1Scores,\
+                 confMatrices=confMatrices, \
+                 testFiles=testFiles,\
+                 f1Scores=f1Scores,\
                  bestRes_w_in=bestFlow[0].w_in, \
                  bestRes_w=bestFlow[0].w, \
                  bestRead=bestFlow[1].save(None)
@@ -425,9 +444,9 @@ def main(name, useFused, useGyro, useAcc):
 
     
     
-    plt.close('all')
+    #plt.close('all')
     
-    return bestFlow
+    return bestFlow, opt
     
 
 def bla():

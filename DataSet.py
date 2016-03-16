@@ -1,9 +1,9 @@
 import numpy as np
 import matplotlib.pyplot as plt
-plt.switch_backend('agg')
 import csv
 from sklearn.cluster.mean_shift_ import MeanShift
-from Main import getProjectPath
+from Main import *
+
 
 
 class DataSet(object):
