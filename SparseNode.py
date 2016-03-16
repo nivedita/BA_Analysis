@@ -5,7 +5,7 @@ from Oger.nodes.reservoir_nodes import ReservoirNode
 
 class SparseNode(ReservoirNode):
 	useSparse = False
-	connectivity = 0.2
+	connectivity = 0.1
 	inputSignals = 'FGA'
 	
 	def __init__(self, input_dim=None, output_dim=None, spectral_radius=0.9, \

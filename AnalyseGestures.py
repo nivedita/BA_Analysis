@@ -1,8 +1,7 @@
 import numpy
 import matplotlib
-
-
 import matplotlib.pyplot as plt
+plt.switch_backend('agg')
 import scipy
 import mdp
 import csv
@@ -16,12 +15,19 @@ import Evaluation
 from DataAnalysis import plot
 from DataAnalysis import subPlot
 from DataSet import createDataSetFromFile
+from Main import getProjectPath
 
 if __name__ == '__main__':
     
     plt.close('all')
-    resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
+    resultsPath = getProjectPath()+'results/'
     
+    now = datetime.datetime.now()
+    resultsPath = getProjectPath()+'results/'
+    pdfFileName = 'gestureAnalysis.pdf'
+    pdfFilePath = resultsPath+'pdf/'+pdfFileName
+    pp = PdfPages(pdfFilePath)
+    print pdfFilePath
     
         
     inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','julian_0_0.npz','julian_0_1.npz','nike_0_0.npz','nike_0_1.npz']
@@ -76,6 +82,7 @@ if __name__ == '__main__':
             plt.setp( fig.get_axes()[0].xaxis.get_majorticklabels(), rotation=70 )
             plt.title('length - Gesture '+str(gestureNr))
             plt.tight_layout()
+            pp.savefig()
             
             fig = plt.figure()
             plt.boxplot(totalSignalPowers, labels=totalFileNames)
@@ -83,6 +90,7 @@ if __name__ == '__main__':
             plt.setp( fig.get_axes()[0].xaxis.get_majorticklabels(), rotation=70 )
             plt.title('power - Gesture '+str(gestureNr))
             plt.tight_layout()
+            pp.savefig()
             
             fig = plt.figure()
             plt.boxplot(totalSignalAvgPowers, labels=totalFileNames)
@@ -90,6 +98,7 @@ if __name__ == '__main__':
             plt.setp( fig.get_axes()[0].xaxis.get_majorticklabels(), rotation=70 )
             plt.title('avg. power - Gesture '+str(gestureNr))
             plt.tight_layout()
+            pp.savefig()
             
             totalTotalGestureLenghts.append(np.concatenate(tuple(totalSignalLengths)))
             totalTotalGesturePower.append(np.concatenate(tuple(totalSignalPowers)))
@@ -99,11 +108,17 @@ if __name__ == '__main__':
     fig = plt.figure()
     plt.title('Length')
     plt.boxplot(totalTotalGestureLenghts)
+    pp.savefig()
     plt.figure()
     plt.title('Power')
     plt.boxplot(totalTotalGesturePower)
+    pp.savefig()
     plt.figure()
     plt.title('Avg. Power')
     plt.boxplot(totalTotalGestureAvgPower)
+    
+    
+    pp.close()
+    plt.close('all')
     
     

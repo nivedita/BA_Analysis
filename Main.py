@@ -16,8 +16,6 @@ import csv
 import Oger
 import datetime
 from matplotlib.backends.backend_pdf import PdfPages
-from Server import *
-import threading
 import DataSet
 from sklearn.metrics import f1_score
 from Evaluation import * 
@@ -26,6 +24,13 @@ import os
 from DataAnalysis import plot
 from DataAnalysis import subPlot
 from SparseNode import SparseNode
+
+
+
+def getProjectPath():
+    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    return projectPath
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -67,7 +72,7 @@ def runningAverage(inputData, width):
     return target
 
 def writeToReportFile(text):
-    with open('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\report.csv', 'ab') as csvfile:
+    with open(getProjectPath()+'results\\report.csv', 'ab') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=';',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(text)
@@ -185,9 +190,11 @@ def w_in_init_function(output_dim, input_dim):
 
 
 def main(name, useFused, useGyro, useAcc):
-    pass
+    #pass
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
+
+    
     name = input('name')
     useFused = True
     useGyro = True
@@ -197,13 +204,13 @@ if __name__ == '__main__':
 
     plt.close('all')
     now = datetime.datetime.now()
-    resultsPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\results\\'
+    resultsPath = getProjectPath()+'results/'
     pdfFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.pdf'
-    pdfFilePath = resultsPath+'pdf\\'+pdfFileName
+    pdfFilePath = resultsPath+'pdf/'+pdfFileName
     npzFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.npz'
-    npzFilePath = resultsPath+'npz\\'+npzFileName
-    resNodePath = resultsPath+'nodes\\'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
-    readNodePath = resultsPath+'nodes\\'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
+    npzFilePath = resultsPath+'npz/'+npzFileName
+    resNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
+    readNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
     
     
         
@@ -263,13 +270,13 @@ if __name__ == '__main__':
     #   gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[1,40,400,401],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.0000001,0.000001,0.00001,0.001]}}
     ######
     
-    gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA','FG','FA','GA','F','G','A'], \
-                                        'spectral_radius':mdp.numx.arange(0.9, 1.0, 0.2), \
-                                        'output_dim':[100], \
-                                        'input_scaling': mdp.numx.arange(0.01, 0.21, 0.05), \
-                                        '_instance':range(2)}, \
-                             readoutnode:{'ridge_param':[10]}}
+    gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
+                                        'inputSignals':['FGA','FG','FA','GA'], \
+                                        'spectral_radius':mdp.numx.arange(0.9, 1.0, 0.05), \
+                                        'output_dim':[100,400], \
+                                        'input_scaling':[0.01,0.1,1,1.7], \
+                                        '_instance':range(5)}, \
+                             readoutnode:{'ridge_param':[0.0001,0.11]}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
@@ -408,13 +415,19 @@ if __name__ == '__main__':
     
     if name != 'test':
         writeToReportFile(result)
-        np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,testFiles=testFiles,confMatrices=confMatrices,f1Scores=f1Scores)
-    else:
-        os.remove(pdfFilePath)
+        np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,testFiles=testFiles,\
+                 confMatrices=confMatrices,f1Scores=f1Scores,\
+                 bestRes_w_in=bestFlow[0].w_in, \
+                 bestRes_w=bestFlow[0].w, \
+                 bestRead=bestFlow[1].save(None)
+                 )
+
+
     
-    a =  bestFlow[0].save(None)
     
-    b = bestFlow[1].save(None)
+    plt.close('all')
+    
+    return bestFlow
     
 
 def bla():

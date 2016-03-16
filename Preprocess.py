@@ -8,6 +8,7 @@ import csv
 from thread import start_new_thread
 import DataSet
 from DataAnalysis import plot
+from BA_Analysis.Main import getProjectPath
 
 def readFileToNumpy(fileName):
     reader=csv.reader(open(fileName,"rb"),delimiter=',')
@@ -137,7 +138,7 @@ def plotData(data):
     
     
 def writeToCSV(data,fileName):
-    numpy.savetxt("C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\"+fileName+".csv", data, delimiter=";")
+    numpy.savetxt(getProjectPath()+"\\dataSets\\"+fileName+".csv", data, delimiter=";")
     
 def safeToDataSet(fileName, data, means, stds, gestures, targetTreshold):
     ds = DataSet.DataSet(data[:,0:3],data[:,3:6],data[:,6:9],numpy.append(data[:,9:], applyFormatTargetFilter(data, targetTreshold), 1), \
@@ -156,7 +157,7 @@ def safe(inputData,aaa,nr):
     writeToCSV(numpy.concatenate((inputData,numpy.atleast_2d(aaa).T),1),"nadja_fitted_"+str(nr))
 
 def readFile(fileName):
-    return readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
+    return readFileToNumpy(getProjectPath()+'dataSets\\'+fileName)
 
 if __name__ == '__main__':
     
@@ -168,7 +169,7 @@ if __name__ == '__main__':
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
-        newData = readFileToNumpy('C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\dataSets\\'+fileName)
+        newData = readFileToNumpy(getProjectPath()+'dataSets\\'+fileName)
         fileData = numpy.append(fileData,newData,0)
     
     fused, gyro, acc, targets = separateInputData(fileData)
