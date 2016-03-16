@@ -263,12 +263,13 @@ if __name__ == '__main__':
     #   gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[1,40,400,401],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.0000001,0.000001,0.00001,0.001]}}
     ######
     
-    gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
+    gridsearch_parameters = {reservoir:{'useSparse':[True], \
+                                        'inputSignals':['FGA','FG','FA','GA','F','G','A'], \
                                         'spectral_radius':mdp.numx.arange(0.9, 1.0, 0.2), \
-                                        'output_dim':[1000], \
-                                        'input_scaling': mdp.numx.arange(0.06, 0.1, 0.05), \
+                                        'output_dim':[100], \
+                                        'input_scaling': mdp.numx.arange(0.01, 0.21, 0.05), \
                                         '_instance':range(2)}, \
-                             readoutnode:{'ridge_param':[1000]}}
+                             readoutnode:{'ridge_param':[10]}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)

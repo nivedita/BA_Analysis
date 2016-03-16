@@ -6,6 +6,7 @@ from Oger.nodes.reservoir_nodes import ReservoirNode
 class SparseNode(ReservoirNode):
 	useSparse = False
 	connectivity = 0.2
+	inputSignals = 'FGA'
 	
 	def __init__(self, input_dim=None, output_dim=None, spectral_radius=0.9, \
 				 nonlin_func=np.tanh, reset_states=True, bias_scaling=0, input_scaling=1, dtype='float64', _instance=0, \
@@ -24,3 +25,22 @@ class SparseNode(ReservoirNode):
 				#print 'using' +str(self.input_dim) + '  ' + str(self.output_dim) + '  '+str(self.input_scaling)
 				for i in range(self.input_dim):
 					self.w_in[np.random.randint(self.output_dim),i]=self.input_scaling
+		if self.inputSignals == 'FGA':
+			pass
+		elif self.inputSignals == 'FG':
+			self.w_in[:,6:9]=0
+		elif self.inputSignals == 'FA':
+			self.w_in[:,3:6]=0
+		elif self.inputSignals == 'GA':
+			self.w_in[:,0:3]=0
+		elif self.inputSignals == 'F':
+			self.w_in[:,3:9]=0
+		elif self.inputSignals == 'G':
+			self.w_in[:,0:3]=0
+			self.w_in[:,6:9]=0
+		elif self.inputSignals == 'A':
+			self.w_in[:,0:6]=0
+			
+		
+			
+		
