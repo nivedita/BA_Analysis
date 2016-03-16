@@ -21,8 +21,8 @@ def mergePredictions(predictions, addTreshold=False, treshold=0.0, plot=False):
 
 def calcConfusionMatrix(input_signal,target_signal):
     nGestures = len(target_signal[0])
-    valsP, indsP = mergePredictions(input_signal, True)
-    valsT, indsT = mergePredictions(target_signal, True)
+    valsP, indsP = mergePredictions(input_signal, True, 0.5)
+    valsT, indsT = mergePredictions(target_signal, True, 0.5)
     changesP = np.where(indsP[:-1] != indsP[1:])[0] + 1  # indexes where predicted gesture changes 
     changesT = np.where(indsT[:-1] != indsT[1:])[0] + 1  # indexes where actual gesture changes
     

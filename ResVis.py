@@ -73,7 +73,7 @@ def plotRes(res,input_signal,targets=None,artTrainingData=False):
         trainingData = signal
             
     
-    signal[:,3:9]=0
+    #signal[:,3:9]=0
     
 
     #signal = np.concatenate([signal, signal, signal],0)

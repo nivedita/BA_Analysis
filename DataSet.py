@@ -142,6 +142,16 @@ def createDataSetFromFile(fileName):
     return DataSet(fused, gyro, acc, targets,means, stds, gestures)
 
 
+def appendDS(dataSets, usedGestures, useFused=True, useGyro=True, useAcc=True):
+    result = (dataSets[0].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],\
+              dataSets[0].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+    for i in range(1,len(dataSets)):
+        result = (np.append(result[0], \
+                  dataSets[i].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
+                  np.append(result[1], \
+                  dataSets[i].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0))
+    return result
+
 #def appendDataSets(ds1, ds2):
 #    fused = np.append(ds1.fused, ds2.fused, 0)
 #    gyro = np.append(ds1.gyro, ds2.gyro, 0)

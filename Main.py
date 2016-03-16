@@ -164,7 +164,7 @@ def calcSingleGestureF1Score(input_signal, target_signal):
 
 def showMissClassifiedGesture(testSetNr,act,pred):
     mcInds = missClassifiedGestures[testSetNr][act][pred]
-    data = testSets[testSetNr].getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]
+    data = testSets[testSetNr].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]
     mcDatas = []
     for mcInd in mcInds:
         mcData = data[mcInd[0]:mcInd[1],:]
@@ -192,7 +192,7 @@ if __name__ == '__main__':
     useFused = True
     useGyro = True
     useAcc = True
-    normalized = True
+    normalized = False
     usedGestures = [0,1]
 
     plt.close('all')
@@ -207,8 +207,8 @@ if __name__ == '__main__':
     
     
         
-    inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','julian_0_0.npz','julian_0_1.npz']
-    secondInputFiles = ['stephan_1_0.npz','stephan_1_1.npz','julian_1_0.npz','julian_1_1.npz']
+    inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz','julian_0_0.npz','julian_0_1.npz','nike_0_0.npz','nike_0_1.npz']
+    secondInputFiles = ['stephan_1_0.npz','stephan_1_1.npz','julian_1_0.npz','julian_1_1.npz','nike_1_0.npz','nike_1_1.npz']
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
     
@@ -229,19 +229,20 @@ if __name__ == '__main__':
         set = DataSet.createDataSetFromFile(iFile)
         trainSets.append(set)
         ds = DataSet.createDataSetFromFile(secondInputFiles[counter])
+        trainSets.append(ds)
         #ds.targets = numpy.ones(ds.acc.shape) * (-1)
         
-        dataStep.append((numpy.append(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
-                                     ds.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
-                         numpy.append(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1], \
-                                     ds.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0)))
+        dataStep.append((numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
+                                     ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
+                         numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1], \
+                                     ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0)))
     data = [dataStep,dataStep]
 
 
     for iFile in testFiles:
         testSets.append(DataSet.createDataSetFromFile(iFile))
-    #data = [[b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)], \
-    #        [b.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),c.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2),d.getMinusPlusDataForTraining(useFused, useGyro, useAcc, 2)]]
+    #data = [[b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)], \
+    #        [b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)]]
 
 
 
@@ -263,11 +264,11 @@ if __name__ == '__main__':
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
-                                        'spectral_radius':mdp.numx.arange(0.1, 1.1, 0.2), \
-                                        'output_dim':[100,400,800], \
-                                        'input_scaling': mdp.numx.arange(0.01, 0.26, 0.05), \
-                                        '_instance':range(3)}, \
-                             readoutnode:{'ridge_param':[0.0000001,0.00001,0.1,1,100]}}
+                                        'spectral_radius':mdp.numx.arange(0.9, 1.0, 0.2), \
+                                        'output_dim':[1000], \
+                                        'input_scaling': mdp.numx.arange(0.06, 0.1, 0.05), \
+                                        '_instance':range(2)}, \
+                             readoutnode:{'ridge_param':[1000]}}
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
@@ -298,7 +299,7 @@ if __name__ == '__main__':
 
     
     nInputFiles = len(inputFiles)
-    fig, axes = plt.subplots(nInputFiles, 1)
+    fig, axes = plt.subplots(nInputFiles, 1, sharex=True, figsize=(20,20))
     plt.tight_layout()
     plt.title('Prediction on training')  
     i = 0 
@@ -330,20 +331,20 @@ if __name__ == '__main__':
     f1Scores = []
     for set, setName in zip(testSets,testFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
-        t_prediction = bestFlow([set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]])
+        t_prediction = bestFlow([set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]])
         plt.figure()
         plt.clf()
         plt.subplot(211)
         plt.title('Prediction on test')
         plt.plot(t_prediction)
-        plt.plot(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
         plt.subplot(212)
         plt.title('Smoothed prediction')
         plt.plot(runningAverage(t_prediction, 10))
-        plt.plot(set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
         pp.savefig()
         print setName
-        cm, missClassified = calcConfusionMatrix(t_prediction, set.getMinusPlusDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        cm, missClassified = calcConfusionMatrix(t_prediction, set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
         f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
         confMatrices.append(cm)
         missClassifiedGestures.append(missClassified)
