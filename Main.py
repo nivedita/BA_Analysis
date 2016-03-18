@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     name = input('name')
     normalized = False
     nmse = False
-    usedGestures = [0,1,2,3,4,5]
+    usedGestures = [4,5]
 
     plt.close('all')
     now = datetime.datetime.now()

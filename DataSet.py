@@ -79,9 +79,10 @@ class DataSet(object):
         stds = np.append(stds,self.stds[6:9],0)
         
         readOutTrainingData = np.zeros((len(inputData),len(classNrs)))
+        i = 0
         for classNr in classNrs:
-            readOutTrainingData[:,classNr] = self.targets[:,targetNr].T * self.gestures[classNr]
-        
+            readOutTrainingData[:,i] = self.targets[:,targetNr].T * self.gestures[classNr]
+            i = i+1
         if normalized:
             inputData = inputData/stds
         data = inputData
