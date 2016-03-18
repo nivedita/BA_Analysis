@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -170,7 +170,7 @@ def calcSingleGestureF1Score(input_signal, target_signal):
 
 def showMissClassifiedGesture(testSetNr,act,pred):
     mcInds = missClassifiedGestures[testSetNr][act][pred]
-    data = testSets[testSetNr].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]
+    data = testSets[testSetNr].getDataForTraining(usedGestures,2)[0]
     mcDatas = []
     for mcInd in mcInds:
         mcData = data[mcInd[0]:mcInd[1],:]
@@ -212,9 +212,9 @@ if __name__ == '__main__':
     resNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
     readNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
     
-    
+    gestureNames = ['left','right','forward','backward','bounce up','bounce down','no gesture']
         
-    inputFiles = ['julian','nike']
+    inputFiles = ['julian','nike','stephan']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
@@ -263,11 +263,12 @@ if __name__ == '__main__':
     
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
-                                        'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
-                                        'output_dim':[1600], \
-                                        'input_scaling':[0.01], \
-                                        '_instance':range(1)}, \
-                             readoutnode:{'ridge_param':[0.0001]}}
+                                        'leak_rate':[1,0.8,0.3,0.1], \
+                                        'spectral_radius':mdp.numx.arange(0.09, 1.0, 0.1), \
+                                        'output_dim':[800,1600], \
+                                        'input_scaling':[0.01,0.1,1], \
+                                        '_instance':range(4)}, \
+                             readoutnode:{'ridge_param':[0.01,0.0001]}}
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
@@ -319,7 +320,7 @@ if __name__ == '__main__':
     
     
     for fileName,trainCm in zip(inputFiles,trainCms):
-        plot_confusion_matrix(trainCm, ['left','right','no gest'], 'trainging: '+fileName)
+        plot_confusion_matrix(trainCm, gestureNames, 'trainging: '+fileName)
         pp.savefig()
    
    
@@ -361,7 +362,7 @@ if __name__ == '__main__':
     totalCm = confMatrices[0]
     for cm in confMatrices[1:]:
         totalCm = totalCm+cm
-    plot_confusion_matrix(totalCm,['left','right','forward','backward','bounce up','bounce down','no gesture'],'total test confusion')    
+    plot_confusion_matrix(totalCm,gestureNames,'total test confusion')    
     pp.savefig()
    
     pp.close();  
@@ -396,8 +397,10 @@ if __name__ == '__main__':
     result.append(sparseDict.get('spectral_radius'))
     result.append('useSparse')
     result.append(sparseDict.get('useSparse'))
+    result.append('leakRate')
+    result.append(sparseDict.get('leak_rate'))
     result.append('ridgePara')
-    result.append(sparseDict.get('ridge_param')) 
+    result.append(ridgeDict.get('ridge_param')) 
      
      
      
