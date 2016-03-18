@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -289,12 +289,12 @@ if __name__ == '__main__':
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
-                                        #'inputSignals':['FGA','AG','A'], \
-                                        #'spectral_radius':mdp.numx.arange(0.05, 1.0, 0.1), \
+                                        'inputSignals':['FGA'], \
+                                        'spectral_radius':mdp.numx.arange(0.55, 1.0, 0.1), \
                                         'output_dim':[40,400], \
                                         'input_scaling':[0.01,0.1], \
                                         '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':[0.00001,0.001,0.11,1]}}
+                             readoutnode:{'ridge_param':[0.00001,0.001]}}
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=2, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
