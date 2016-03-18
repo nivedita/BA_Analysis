@@ -7,7 +7,7 @@ Created on 17.02.2016
 
 import numpy
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
 import scipy
@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -72,7 +72,8 @@ def runningAverage(inputData, width):
     return target
 
 def writeToReportFile(text):
-    with open(getProjectPath()+'results\\report.csv', 'ab') as csvfile:
+    print getProjectPath()+'results/report.csv'
+    with open(getProjectPath()+'results/report.csv', 'ab') as csvfile:
         spamwriter = csv.writer(csvfile, delimiter=';',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(text)
@@ -190,11 +191,11 @@ def w_in_init_function(output_dim, input_dim):
 
 
 def main():
-    #pass
+    pass
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
 
-    
+    #name = 'TestTMUX'
     name = input('name')
     useFused = True
     useGyro = True
@@ -214,12 +215,12 @@ def main():
     
     
         
-    inputFiles =        ['julian_0_fullSet.npz','nike_0_fullSet.npz']
-    secondInputFiles =  ['julian_1_fullSet.npz','nike_1_fullSet.npz']
-    thirdInputFiles =   ['julian_2_fullSet.npz','nike_2_fullSet.npz']
-    fourthInputFiles =  ['julian_3_fullSet.npz','nike_3_fullSet.npz']
-    fithInputFiles =    ['julian_4_fullSet.npz','nike_4_fullSet.npz']
-    sixInputFiles =     ['julian_5_fullSet.npz','nike_5_fullSet.npz']
+    inputFiles =        ['julian_0_fullSet.npz','nike_0_fullset.npz']
+    secondInputFiles =  ['julian_1_fullSet.npz','nike_1_fullset.npz']
+    thirdInputFiles =   ['julian_2_fullSet.npz','nike_2_fullset.npz']
+    fourthInputFiles =  ['julian_3_fullSet.npz','nike_3_fullset.npz']
+    fithInputFiles =    ['julian_4_fullSet.npz','nike_4_fullset.npz']
+    sixInputFiles =     ['julian_5_fullSet.npz','nike_5_fullset.npz']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
@@ -288,14 +289,14 @@ def main():
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
-                                        'inputSignals':['FGA','AG','A'], \
-                                        'spectral_radius':mdp.numx.arange(0.05, 1.0, 0.1), \
-                                        'output_dim':[10,400,800], \
-                                        'input_scaling':[0.01,0.1,1,1.7], \
+                                        #'inputSignals':['FGA','AG','A'], \
+                                        #'spectral_radius':mdp.numx.arange(0.05, 1.0, 0.1), \
+                                        'output_dim':[40,400], \
+                                        'input_scaling':[0.01,0.1], \
                                         '_instance':range(5)}, \
                              readoutnode:{'ridge_param':[0.00001,0.001,0.11,1]}}
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
+    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=2, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
     
 
@@ -388,12 +389,12 @@ def main():
    
     pp.close();  
     
-    
+    print pdfFilePath    
     #---------------------------------------------------------------------------------------------------#
     #-----------------------------------------------REPORT----------------------------------------------#
     #---------------------------------------------------------------------------------------------------#  
 
-
+    inFiles = inputFiles.extend(secondInputFiles)
     result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
               'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
     
@@ -434,11 +435,10 @@ def main():
         writeToReportFile(result)
         np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,testFiles=testFiles,\
                  confMatrices=confMatrices, \
-                 testFiles=testFiles,\
+                 testFileList=testFiles,\
                  f1Scores=f1Scores,\
                  bestRes_w_in=bestFlow[0].w_in, \
                  bestRes_w=bestFlow[0].w, \
-                 bestRead=bestFlow[1].save(None)
                  )
 
 
@@ -446,7 +446,7 @@ def main():
     
     #plt.close('all')
     
-    return bestFlow, opt
+#    return bestFlow, opt
     
 
 def bla():
