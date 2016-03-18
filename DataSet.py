@@ -98,7 +98,7 @@ class DataSet(object):
             inputData = inputData/stds
         data = inputData
         target = readOutTrainingData
-        for i in range(0,multiplier):
+        for i in range(1,multiplier):
             data = np.append(data,inputData,0)
             target = np.append(target,readOutTrainingData,0)
         return (data,target)

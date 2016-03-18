@@ -40,6 +40,8 @@ if __name__ == '__main__':
     inputFiles.extend(julianFiles)
     inputFiles.sort()
     
+    dataSets=[]
+    
     totalTotalGestureLenghts = []
     totalTotalGesturePower = []
     totalTotalGestureAvgPower=[]
@@ -51,6 +53,7 @@ if __name__ == '__main__':
         for iFile in inputFiles:
             
             ds =createDataSetFromFile(iFile)
+            dataSets.append(ds)
             signals = ds.getAllSignals(gestureNr, 2)
             nSignals = len(signals)
             if nSignals > 0:
