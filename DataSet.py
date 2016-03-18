@@ -68,27 +68,15 @@ class DataSet(object):
     def getGyro(self):
         return self.gyro 
     
-    def getDataForTraining(self, classNrs,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1, normalized = False):
+    def getDataForTraining(self, classNrs, targetNr=2, multiplier = 1, normalized = False):
         inputData = np.empty((0,0))
         stds = np.empty((0,0))
-        if useFused:
-            inputData = self.fused
-            stds = self.stds[0:3]
-        if useGyro:
-            if len(inputData) == 0:
-                inputData = self.gyro
-                stds = self.stds[3:6]
-            else:
-                inputData = np.append(inputData, self.gyro, 1)
-                stds = np.append(stds,self.stds[3:6],0)
-            
-        if useAcc:
-            if len(inputData) == 0:
-                inputData = self.acc
-                stds = self.stds[6:9]
-            else:
-                inputData = np.append(inputData, self.acc, 1)
-                stds = np.append(stds,self.stds[6:9],0)
+        inputData = self.fused
+        stds = self.stds[0:3]
+        inputData = np.append(inputData, self.gyro, 1)
+        stds = np.append(stds,self.stds[3:6],0)
+        inputData = np.append(inputData, self.acc, 1)
+        stds = np.append(stds,self.stds[6:9],0)
         
         readOutTrainingData = np.zeros((len(inputData),len(classNrs)))
         for classNr in classNrs:
@@ -115,8 +103,8 @@ class DataSet(object):
                 lastInd = ind
         return signals
     
-    def getMinusPlusDataForTraining(self, classNr ,useFused=True, useGyro=True, useAcc=True, targetNr=2, multiplier = 1):
-        inputData, target = self.getDataForTraining(classNr, useFused, useGyro, useAcc, targetNr, multiplier, True)
+    def getMinusPlusDataForTraining(self, classNr ,targetNr=2, multiplier = 1):
+        inputData, target = self.getDataForTraining(classNr, targetNr, multiplier, True)
         low_values_indices = target == 0  # Where values are low
         target[low_values_indices] = -1   
         return (inputData,target)
@@ -144,16 +132,22 @@ def createDataSetFromFile(fileName):
     return DataSet(fused, gyro, acc, targets,means, stds, gestures)
 
 
-def appendDS(dataSets, usedGestures, useFused=True, useGyro=True, useAcc=True):
-    result = (dataSets[0].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],\
-              dataSets[0].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+def appendDS(dataSets, usedGestures):
+    result = (dataSets[0].getDataForTraining(usedGestures,2)[0],\
+              dataSets[0].getDataForTraining(usedGestures,2)[1])
     for i in range(1,len(dataSets)):
         result = (np.append(result[0], \
-                  dataSets[i].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
+                  dataSets[i].getDataForTraining(usedGestures,2)[0],0), \
                   np.append(result[1], \
-                  dataSets[i].getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0))
+                  dataSets[i].getDataForTraining(usedGestures,2)[1],0))
     return result
 
+def createData(dataSetName, usedGestures):
+    dataSets= []
+    for gesture in usedGestures:
+        fullName = dataSetName + '_' +str(gesture) + '_' + 'fullSet.npz'
+        dataSets.append(createDataSetFromFile(fullName))
+    return appendDS(dataSets, usedGestures)
 #def appendDataSets(ds1, ds2):
 #    fused = np.append(ds1.fused, ds2.fused, 0)
 #    gyro = np.append(ds1.gyro, ds2.gyro, 0)

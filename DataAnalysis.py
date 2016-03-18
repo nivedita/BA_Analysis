@@ -83,7 +83,7 @@ if __name__ == '__main__':
 
 def specEmbedding():
     clf = SpectralEmbedding(3)
-    X = clf.fit_transform(dataSets[2].getDataForTraining([0], True, True, True, 2)[0][:])
+    X = clf.fit_transform(dataSets[2].getDataForTraining([0], 2)[0][:])
     c = range(0,len(X))
     plt.figure()
     plt.plot(X[:,0], X[:,1])

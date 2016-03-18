@@ -16,7 +16,7 @@ import csv
 import Oger
 import datetime
 from matplotlib.backends.backend_pdf import PdfPages
-import DataSet
+from DataSet import *
 from sklearn.metrics import f1_score
 from Evaluation import * 
 import Evaluation
@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -190,6 +190,7 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
+
 def main():
     pass
 
@@ -197,10 +198,8 @@ if __name__ == '__main__':
 
     #name = 'TestTMUX'
     name = input('name')
-    useFused = True
-    useGyro = True
-    useAcc = True
     normalized = False
+    nmse = False
     usedGestures = [0,1,2,3,4,5]
 
     plt.close('all')
@@ -215,12 +214,7 @@ if __name__ == '__main__':
     
     
         
-    inputFiles =        ['julian_0_fullSet.npz','nike_0_fullSet.npz']
-    secondInputFiles =  ['julian_1_fullSet.npz','nike_1_fullSet.npz']
-    thirdInputFiles =   ['julian_2_fullSet.npz','nike_2_fullSet.npz']
-    fourthInputFiles =  ['julian_3_fullSet.npz','nike_3_fullSet.npz']
-    fithInputFiles =    ['julian_4_fullSet.npz','nike_4_fullSet.npz']
-    sixInputFiles =     ['julian_5_fullSet.npz','nike_5_fullSet.npz']
+    inputFiles = ['julian','nike']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
@@ -237,35 +231,14 @@ if __name__ == '__main__':
     trainSets = []
     testSets = []
     dataStep = []
-    for iFile, counter in zip(inputFiles, range(0,len(inputFiles))):
-        print counter
-        ds0 = DataSet.createDataSetFromFile(iFile)
-        trainSets.append(ds0)
-        ds1 = DataSet.createDataSetFromFile(secondInputFiles[counter])
-        trainSets.append(ds1)
-        ds2 = DataSet.createDataSetFromFile(thirdInputFiles[counter])
-        trainSets.append(ds2)
-        
-        ds3 = DataSet.createDataSetFromFile(fourthInputFiles[counter])
-        trainSets.append(ds3)
-        
-        ds4 = DataSet.createDataSetFromFile(fithInputFiles[counter])
-        trainSets.append(ds4)
-        
-        ds5 = DataSet.createDataSetFromFile(sixInputFiles[counter])
-        trainSets.append(ds5)
-        
-        #ds.targets = numpy.ones(ds.acc.shape) * (-1)
-        dataStep.append(DataSet.appendDS([ds0,ds1,ds2,ds3,ds4,ds5], usedGestures, useFused, useGyro, useAcc))
-        #dataStep.append((numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0], \
-        #                             ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0],0), \
-        #                 numpy.append(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1], \
-        #                             ds.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1],0)))
+    
+    for fileName in inputFiles:
+        dataStep.append(createData(fileName, usedGestures))
     data = [dataStep,dataStep]
 
 
     for iFile in testFiles:
-        testSets.append(DataSet.createDataSetFromFile(iFile))
+        testSets.append(createDataSetFromFile(iFile))
     #data = [[b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)]]
 
@@ -288,15 +261,18 @@ if __name__ == '__main__':
     #   gridsearch_parameters = {reservoir:{'spectral_radius':mdp.numx.arange(0.6, 1.1, 0.1),'output_dim':[1,40,400,401],'input_scaling': mdp.numx.arange(0.1, 1.1, 0.1),'_instance':range(6)},readoutnode:{'ridge_param':[0.0000001,0.000001,0.00001,0.001]}}
     ######
     
-    gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
+    gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
                                         'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
-                                        'output_dim':[400,800,1600,3200], \
-                                        'input_scaling':[0.01,0.1], \
-                                        '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':[0.0001,0.001]}}
-    #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-    opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+                                        'output_dim':[1600], \
+                                        'input_scaling':[0.01], \
+                                        '_instance':range(1)}, \
+                             readoutnode:{'ridge_param':[0.0001]}}
+    
+    if nmse:
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
+    else:
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     opt.grid_search(data, flow, n_folds=2, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
     
 
@@ -340,7 +316,7 @@ if __name__ == '__main__':
     #plt.plot(data[0][0][0])
     pp.savefig()
    
-   
+    
     
     for fileName,trainCm in zip(inputFiles,trainCms):
         plot_confusion_matrix(trainCm, ['left','right','no gest'], 'trainging: '+fileName)
@@ -357,20 +333,21 @@ if __name__ == '__main__':
     f1Scores = []
     for set, setName in zip(testSets,testFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
-        t_prediction = bestFlow([set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[0]])
-        plt.figure()
+        t_prediction = bestFlow([set.getDataForTraining(usedGestures, 2)[0]])
+        fig = plt.figure()
+        fig.suptitle(setName)
         plt.clf()
         plt.subplot(211)
-        plt.title('Prediction on test')
+        plt.title('Prediction on test ' +setName)
         plt.plot(t_prediction)
-        plt.plot(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getDataForTraining(usedGestures,2)[1])
         plt.subplot(212)
         plt.title('Smoothed prediction')
         plt.plot(runningAverage(t_prediction, 10))
-        plt.plot(set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        plt.plot(set.getDataForTraining(usedGestures,2)[1])
         pp.savefig()
         print setName
-        cm, missClassified = calcConfusionMatrix(t_prediction, set.getDataForTraining(usedGestures,useFused, useGyro, useAcc, 2)[1])
+        cm, missClassified = calcConfusionMatrix(t_prediction, set.getDataForTraining(usedGestures,2)[1])
         f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
         confMatrices.append(cm)
         missClassifiedGestures.append(missClassified)
@@ -384,7 +361,7 @@ if __name__ == '__main__':
     totalCm = confMatrices[0]
     for cm in confMatrices[1:]:
         totalCm = totalCm+cm
-    plot_confusion_matrix(totalCm,['left','right','no gesture'],'total test confusion')    
+    plot_confusion_matrix(totalCm,['left','right','forward','backward','bounce up','bounce down','no gesture'],'total test confusion')    
     pp.savefig()
    
     pp.close();  
@@ -394,14 +371,39 @@ if __name__ == '__main__':
     #-----------------------------------------------REPORT----------------------------------------------#
     #---------------------------------------------------------------------------------------------------#  
 
-    inFiles = inputFiles.extend(secondInputFiles)
+    inFiles = inputFiles
     result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
               'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
     
 
     result.extend(['usedGestures',usedGestures])
         
-        
+      
+      
+    minErrDict = opt.get_minimal_error()[1]
+    sparseDict = minErrDict.get(reservoir)
+    ridgeDict = minErrDict.get(readoutnode)
+    
+    result.append('_instance')
+    result.append(sparseDict.get('_instance')) 
+    result.append('inputSignals')
+    result.append(sparseDict.get('inputSignals'))
+    result.append('input_scaling')
+    result.append(sparseDict.get('input_scaling'))
+    result.append('output_dim')
+    result.append(sparseDict.get('output_dim'))
+    result.append('spectral_radius')
+    result.append(sparseDict.get('spectral_radius'))
+    result.append('useSparse')
+    result.append(sparseDict.get('useSparse'))
+    result.append('ridgePara')
+    result.append(sparseDict.get('ridge_param')) 
+     
+     
+     
+     
+     
+    
     for a in opt.get_minimal_error()[1].iterkeys():
         result.append(a)
         for attribute in opt.get_minimal_error()[1].get(a).iterkeys():
