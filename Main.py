@@ -215,12 +215,12 @@ if __name__ == '__main__':
     
     
         
-    inputFiles =        ['julian_0_fullSet.npz','nike_0_fullset.npz']
-    secondInputFiles =  ['julian_1_fullSet.npz','nike_1_fullset.npz']
-    thirdInputFiles =   ['julian_2_fullSet.npz','nike_2_fullset.npz']
-    fourthInputFiles =  ['julian_3_fullSet.npz','nike_3_fullset.npz']
-    fithInputFiles =    ['julian_4_fullSet.npz','nike_4_fullset.npz']
-    sixInputFiles =     ['julian_5_fullSet.npz','nike_5_fullset.npz']
+    inputFiles =        ['julian_0_fullSet.npz','nike_0_fullSet.npz']
+    secondInputFiles =  ['julian_1_fullSet.npz','nike_1_fullSet.npz']
+    thirdInputFiles =   ['julian_2_fullSet.npz','nike_2_fullSet.npz']
+    fourthInputFiles =  ['julian_3_fullSet.npz','nike_3_fullSet.npz']
+    fithInputFiles =    ['julian_4_fullSet.npz','nike_4_fullSet.npz']
+    sixInputFiles =     ['julian_5_fullSet.npz','nike_5_fullSet.npz']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
@@ -290,11 +290,11 @@ if __name__ == '__main__':
     
     gridsearch_parameters = {reservoir:{'useSparse':[True,False], \
                                         'inputSignals':['FGA'], \
-                                        'spectral_radius':mdp.numx.arange(0.55, 1.0, 0.1), \
-                                        'output_dim':[40,400], \
+                                        'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
+                                        'output_dim':[400,800,1600,3200], \
                                         'input_scaling':[0.01,0.1], \
                                         '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':[0.00001,0.001]}}
+                             readoutnode:{'ridge_param':[0.0001,0.001]}}
     #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
     opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     opt.grid_search(data, flow, n_folds=2, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
@@ -399,7 +399,7 @@ if __name__ == '__main__':
               'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
     
 
-    result.extend(['fused',str(useFused),'gyro',str(useGyro),'acc',str(useAcc),'usedGestures',usedGestures])
+    result.extend(['usedGestures',usedGestures])
         
         
     for a in opt.get_minimal_error()[1].iterkeys():
