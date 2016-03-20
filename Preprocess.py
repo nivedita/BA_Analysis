@@ -166,7 +166,7 @@ if __name__ == '__main__':
     
 
 
-    inputFileName = ["2016-03-18-22-42-12-stephan_fullSet.csv"]
+    inputFileName = ["2016-03-19-11-26-58-nadja_fullSet.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:

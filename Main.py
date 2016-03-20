@@ -200,7 +200,7 @@ if __name__ == '__main__':
     name = input('name')
     normalized = False
     nmse = False
-    usedGestures = [4,5]
+    usedGestures = [0,1,2,3,4,5]
 
     plt.close('all')
     now = datetime.datetime.now()
@@ -212,12 +212,17 @@ if __name__ == '__main__':
     resNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
     readNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
     
-    gestureNames = ['left','right','forward','backward','bounce up','bounce down','no gesture']
-        
-    inputFiles = ['julian','nike','stephan']
+    totalGestureNames = ['left','right','forward','backward','bounce up','bounce down','','','no gesture']
+    gestureNames = []
+    for i in usedGestures:
+        gestureNames.append(totalGestureNames[i])
+    gestureNames.append('no gesture')
+    
+    
+    inputFiles = ['julian','nike','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz','julian_0_fullSet.npz','julian_1_fullSet.npz']
+    testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     
     pp = PdfPages(pdfFilePath)
     
@@ -263,18 +268,18 @@ if __name__ == '__main__':
     
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
-                                        'leak_rate':[1,0.8,0.3,0.1], \
-                                        'spectral_radius':mdp.numx.arange(0.09, 1.0, 0.1), \
-                                        'output_dim':[800,1600], \
-                                        'input_scaling':[0.01,0.1,1], \
-                                        '_instance':range(4)}, \
-                             readoutnode:{'ridge_param':[0.01,0.0001]}}
+                                        'leak_rate':[1,0.1], \
+                                        'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
+                                        'output_dim':[800], \
+                                        'input_scaling':[0.1], \
+                                        '_instance':range(2)}, \
+                             readoutnode:{'ridge_param':[0.01]}}
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     else:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-    opt.grid_search(data, flow, n_folds=2, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
+    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
     
 
     
@@ -334,6 +339,7 @@ if __name__ == '__main__':
     f1Scores = []
     for set, setName in zip(testSets,testFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
+        testData = createData('nadja', usedGestures)
         t_prediction = bestFlow([set.getDataForTraining(usedGestures, 2)[0]])
         fig = plt.figure()
         fig.suptitle(setName)
@@ -353,11 +359,36 @@ if __name__ == '__main__':
         confMatrices.append(cm)
         missClassifiedGestures.append(missClassified)
         f1Scores.append(f1)
-        plot_confusion_matrix(cm,['left','right','no gesture'],setName)
+        plot_confusion_matrix(cm,gestureNames,setName)
         pp.savefig()
         print cm
         print f1
-        
+       
+    testData = createData('stephan', usedGestures)
+    t_prediction = bestFlow(testData[0])
+    fig = plt.figure()
+    fig.suptitle(setName)
+    plt.clf()
+    plt.subplot(211)
+    plt.title('Prediction on test stephan')
+    plt.plot(t_prediction)
+    plt.plot(testData[1])
+    plt.subplot(212)
+    plt.title('Smoothed prediction')
+    plt.plot(runningAverage(t_prediction, 10))
+    plt.plot(testData[1])
+    pp.savefig()
+
+    cm, missClassified = calcConfusionMatrix(t_prediction, set.getDataForTraining(usedGestures,2)[1])
+    f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
+    confMatrices.append(cm)
+    missClassifiedGestures.append(missClassified)
+    f1Scores.append(f1)
+    plot_confusion_matrix(cm,gestureNames,setName)
+    pp.savefig()
+    print cm
+    print f1 
+    
     
     totalCm = confMatrices[0]
     for cm in confMatrices[1:]:
@@ -366,6 +397,7 @@ if __name__ == '__main__':
     pp.savefig()
    
     pp.close();  
+    plt.close('all')
     
     print pdfFilePath    
     #---------------------------------------------------------------------------------------------------#
@@ -449,7 +481,7 @@ if __name__ == '__main__':
 
     
     
-    #plt.close('all')
+    
     
 #    return bestFlow, opt
     
