@@ -267,11 +267,12 @@ if __name__ == '__main__':
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA'], \
-                                        'leak_rate':[1,0.1], \
+                                        'inputSignals':['FGA','FG','FA','GA','F','G','A'], \
+                                        'colScaling':[True,False], \
+                                        'leak_rate':[1,0.9,0.1], \
                                         'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
                                         'output_dim':[800], \
-                                        'input_scaling':[0.1], \
+                                        'input_scaling':[0.1,1,1.7], \
                                         '_instance':range(2)}, \
                              readoutnode:{'ridge_param':[0.01]}}
     
