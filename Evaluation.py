@@ -188,9 +188,9 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
         plt.colorbar()
         if ranges is not None:
             tick_marks = np.arange(len(mins[0]))
-            plt.xticks(tick_marks, ranges[yAxis], rotation=45)
+            plt.xticks(tick_marks, ranges[xAxis], rotation=45)
             tick_marks = np.arange(len(mins))
-            plt.yticks(tick_marks, ranges[xAxis])
+            plt.yticks(tick_marks, ranges[yAxis])
         plt.tight_layout()
                 
         if pp is not None:

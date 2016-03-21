@@ -17,7 +17,49 @@ from DataAnalysis import subPlot
 from DataSet import createDataSetFromFile, createData, appendDS
 from Main import getProjectPath
 
+
+def getAllDataSetNames():
+    julianFiles = ['julian_0_fullSet.npz','julian_1_fullSet.npz','julian_2_fullSet.npz','julian_3_fullSet.npz','julian_4_fullSet.npz','julian_5_fullSet.npz','julian_8_fullSet.npz','julian_9_fullSet.npz']
+    nikeFiles = ['nike_0_fullSet.npz','nike_1_fullSet.npz','nike_2_fullSet.npz','nike_3_fullSet.npz','nike_4_fullSet.npz','nike_5_fullSet.npz','nike_8_fullSet.npz','nike_9_fullSet.npz']
+    stephanFiles = ['stephan_0_fullSet.npz','stephan_1_fullSet.npz','stephan_2_fullSet.npz','stephan_3_fullSet.npz','stephan_4_fullSet.npz','stephan_5_fullSet.npz','stephan_8_fullSet.npz','stephan_9_fullSet.npz']
+    nadjaFiles = ['nadja_0_fullSet.npz','nadja_1_fullSet.npz','nadja_2_fullSet.npz','nadja_3_fullSet.npz','nadja_4_fullSet.npz','nadja_5_fullSet.npz','nadja_8_fullSet.npz','nadja_9_fullSet.npz']
+    
+    inputFiles = []
+    inputFiles.extend(julianFiles)
+    inputFiles.extend(nikeFiles)
+    inputFiles.extend(stephanFiles)
+    inputFiles.extend(nadjaFiles)
+    inputFiles.sort()
+    
+    return inputFiles
+
+
+def analyseBias():
+    pass
 if __name__ == '__main__':
+    dsNames = getAllDataSetNames()
+    dataSets = []
+    for dsName in dsNames:
+        dataSets.append(createDataSetFromFile(dsName))
+    
+    meanDrifts = []
+    for gesture in range(0,10):
+        signals = []
+        for dataSet in dataSets:
+            signals.extend( dataSet.getAllSignals(gesture, 2))
+        signalSums = np.zeros((len(signals),9))
+        for i, signal in enumerate(signals):
+            signalSums[i,:] = np.sum(signal[:,0:9],0)
+        meanDrifts.append( np.mean(signalSums,0)) 
+    
+    plt.figure()
+    for meanDrift in meanDrifts:
+        
+        plt.plot(meanDrift)
+
+    pass
+
+def main():
     
     plt.close('all')
     resultsPath = getProjectPath()+'results/'
@@ -34,20 +76,10 @@ if __name__ == '__main__':
     #secondInputFiles = ['stephan_1_0.npz','stephan_1_1.npz','julian_1_0.npz','julian_1_1.npz','nike_1_0.npz','nike_1_1.npz']
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     #testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
-    julianFiles = ['julian_0_fullSet.npz','julian_1_fullSet.npz','julian_2_fullSet.npz','julian_3_fullSet.npz','julian_4_fullSet.npz','julian_5_fullSet.npz','julian_8_fullSet.npz','julian_9_fullSet.npz']
-    nikeFiles = ['nike_0_fullSet.npz','nike_1_fullSet.npz','nike_2_fullSet.npz','nike_3_fullSet.npz','nike_4_fullSet.npz','nike_5_fullSet.npz','nike_8_fullSet.npz','nike_9_fullSet.npz']
-    stephanFiles = ['stephan_0_fullSet.npz','stephan_1_fullSet.npz','stephan_2_fullSet.npz','stephan_3_fullSet.npz','stephan_4_fullSet.npz','stephan_5_fullSet.npz','stephan_8_fullSet.npz','stephan_9_fullSet.npz']
-    nadjaFiles = ['nadja_0_fullSet.npz','nadja_1_fullSet.npz','nadja_2_fullSet.npz','nadja_3_fullSet.npz','nadja_4_fullSet.npz','nadja_5_fullSet.npz','nadja_8_fullSet.npz','nadja_9_fullSet.npz']
-    
-    inputFiles = []
-    inputFiles.extend(julianFiles)
-    inputFiles.extend(nikeFiles)
-    inputFiles.extend(stephanFiles)
-    inputFiles.extend(nadjaFiles)
-    inputFiles.sort()
     
     dataSets=[]
     
+    inputFiles = getAllDataSetNames()
     
     
     totalTotalGestureLenghts = []

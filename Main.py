@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -200,7 +200,7 @@ if __name__ == '__main__':
     name = input('name')
     normalized = False
     nmse = False
-    usedGestures = [0,1,2,3,4,5]
+    usedGestures = [0,1,2,3,4,5,8,9]
 
     plt.close('all')
     now = datetime.datetime.now()
@@ -212,7 +212,7 @@ if __name__ == '__main__':
     resNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
     readNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
     
-    totalGestureNames = ['left','right','forward','backward','bounce up','bounce down','','','no gesture']
+    totalGestureNames = ['left','right','forward','backward','bounce up','bounce down','','','shake lr','shape ud','no gesture']
     gestureNames = []
     for i in usedGestures:
         gestureNames.append(totalGestureNames[i])
@@ -269,12 +269,12 @@ if __name__ == '__main__':
     
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA','FG','FA','GA'], \
-                                        'useNormalized':[True,False], \
+                                        'useNormalized':[0,1,2], \
                                         'leak_rate':[1,0.2], \
                                         'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
                                         'output_dim':[800], \
-                                        'input_scaling':mdp.numx.arange(0.1, 1.8, 0.3), \
-                                        '_instance':range(2)}, \
+                                        'input_scaling':mdp.numx.arange(0.1, 1.8, 0.2), \
+                                        '_instance':range(3)}, \
                              readoutnode:{'ridge_param':[0.01]}}
     
     if nmse:
@@ -298,6 +298,18 @@ if __name__ == '__main__':
 #        opt.plot_results([(reservoir, '_instance')],plot_variance=False)
         
     plotMinErrors(opt.errors, opt.parameters, opt.parameter_ranges, pp)
+    
+    i = 0
+    for node , param in opt.parameters:
+        if param == 'inputSignals':
+            inputSignalAxis = i
+        elif param == 'input_scaling':
+            inputScalingAxis = i
+        elif param == 'useNormalized':
+            normAxis = i
+        i =i+1
+    
+    plotAlongAxisErrors(opt.errors, opt.parameters, opt.parameter_ranges, normAxis, inputSignalAxis, inputScalingAxis, pp)
     
     bestFlow = opt.get_optimal_flow(True)
     bestFlow.train(data)
