@@ -55,7 +55,7 @@ def subBoxPlot(X, titles = [],title=''):
 if __name__ == '__main__':
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     inputFiles = ['stephan_0_0.npz', 'stephan_0_1.npz', 'stephan_0_2.npz']
-    testFiles = ['daniel_0_0.npz','stephan_0_0.npz','stephan_1_2.npz']
+    randTestFiles = ['daniel_0_0.npz','stephan_0_0.npz','stephan_1_2.npz']
     
    
     dataSets = []

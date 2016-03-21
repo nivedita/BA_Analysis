@@ -14,7 +14,7 @@ from Evaluation import *
 import Evaluation
 from DataAnalysis import plot
 from DataAnalysis import subPlot
-from DataSet import createDataSetFromFile
+from DataSet import createDataSetFromFile, createData, appendDS
 from Main import getProjectPath
 
 if __name__ == '__main__':
@@ -48,13 +48,17 @@ if __name__ == '__main__':
     
     dataSets=[]
     
+    
+    
     totalTotalGestureLenghts = []
     totalTotalGesturePower = []
     totalTotalGestureAvgPower=[]
+    totalTotalGestureRotation = []
     for gestureNr in range(0,10):
         totalSignalLengths = []
         totalSignalPowers = []
         totalSignalAvgPowers = []
+        totalSignalRotation = []
         totalFileNames = []
         for iFile in inputFiles:
             
@@ -65,6 +69,7 @@ if __name__ == '__main__':
             if nSignals > 0:
                 signalLengths = np.zeros((nSignals,1))
                 signalPower = np.zeros((nSignals,1))
+                signalRotation = np.zeros((nSignals,1))
                 signalAvgPower = np.zeros((nSignals,1))
                 
                 for i in range(0,nSignals):
@@ -79,8 +84,14 @@ if __name__ == '__main__':
                     signalPower[i] = power
                     
                     signalAvgPower[i] = power/rows
+                    
+                    #signal power
+                    rotation = np.sum(np.abs(signal[:,3:6]))
+                    signalRotation[i] = rotation
+                    
                 totalSignalLengths.append(signalLengths)
                 totalSignalPowers.append(signalPower)
+                totalSignalRotation.append(signalRotation)
                 totalSignalAvgPowers.append(signalAvgPower)
                 totalFileNames.append(iFile)
                 
@@ -109,10 +120,17 @@ if __name__ == '__main__':
             plt.tight_layout()
             pp.savefig()
             
+            fig = plt.figure()
+            plt.boxplot(totalSignalRotation, labels=totalFileNames)
+            plt.ylim((0,1000))
+            plt.setp( fig.get_axes()[0].xaxis.get_majorticklabels(), rotation=70 )
+            plt.title('rotation - Gesture '+str(gestureNr))
+            plt.tight_layout()
+            pp.savefig()
             totalTotalGestureLenghts.append(np.concatenate(tuple(totalSignalLengths)))
             totalTotalGesturePower.append(np.concatenate(tuple(totalSignalPowers)))
             totalTotalGestureAvgPower.append(np.concatenate(tuple(totalSignalAvgPowers)))
-            
+            totalTotalGestureRotation.append(np.concatenate(tuple(totalSignalRotation)))
         
     fig = plt.figure()
     plt.title('Length')
@@ -125,9 +143,14 @@ if __name__ == '__main__':
     plt.figure()
     plt.title('Avg. Power')
     plt.boxplot(totalTotalGestureAvgPower)
-    
+    pp.savefig()
+    plt.figure()
+    plt.title('Rotation')
+    plt.boxplot(totalTotalGestureRotation)
+    pp.savefig()
     
     pp.close()
     #plt.close('all')
     
-    
+    print 'std deviation: '+str(np.std(appendDS(dataSets, [0,1,2,3,4,5])[0],0))
+    print 'max: ' +str(np.max(appendDS(dataSets, [0,1,2,3,4,5])[0],0))

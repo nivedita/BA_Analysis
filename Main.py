@@ -170,7 +170,7 @@ def calcSingleGestureF1Score(input_signal, target_signal):
 
 def showMissClassifiedGesture(testSetNr,act,pred):
     mcInds = missClassifiedGestures[testSetNr][act][pred]
-    data = testSets[testSetNr].getDataForTraining(usedGestures,2)[0]
+    data = randTestSets[testSetNr].getDataForTraining(usedGestures,2)[0]
     mcDatas = []
     for mcInd in mcInds:
         mcData = data[mcInd[0]:mcInd[1],:]
@@ -222,7 +222,8 @@ if __name__ == '__main__':
     inputFiles = ['julian','nike','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
+    testFiles = ['stephan']
+    randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     
     pp = PdfPages(pdfFilePath)
     
@@ -234,7 +235,7 @@ if __name__ == '__main__':
 
     
     trainSets = []
-    testSets = []
+    randTestSets = []
     dataStep = []
     
     for fileName in inputFiles:
@@ -242,8 +243,8 @@ if __name__ == '__main__':
     data = [dataStep,dataStep]
 
 
-    for iFile in testFiles:
-        testSets.append(createDataSetFromFile(iFile))
+    for iFile in randTestFiles:
+        randTestSets.append(createDataSetFromFile(iFile))
     #data = [[b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)]]
 
@@ -267,12 +268,12 @@ if __name__ == '__main__':
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA','FG','FA','GA','F','G','A'], \
-                                        'colScaling':[True,False], \
-                                        'leak_rate':[1,0.9,0.1], \
+                                        'inputSignals':['FGA','FG','FA','GA'], \
+                                        'useNormalized':[True,False], \
+                                        'leak_rate':[1,0.2], \
                                         'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
                                         'output_dim':[800], \
-                                        'input_scaling':[0.1,1,1.7], \
+                                        'input_scaling':mdp.numx.arange(0.1, 1.8, 0.3), \
                                         '_instance':range(2)}, \
                              readoutnode:{'ridge_param':[0.01]}}
     
@@ -338,7 +339,7 @@ if __name__ == '__main__':
     confMatrices = []
     missClassifiedGestures = []
     f1Scores = []
-    for set, setName in zip(testSets,testFiles):
+    for set, setName in zip(randTestSets,randTestFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
         testData = createData('nadja', usedGestures)
         t_prediction = bestFlow([set.getDataForTraining(usedGestures, 2)[0]])
@@ -362,33 +363,31 @@ if __name__ == '__main__':
         f1Scores.append(f1)
         plot_confusion_matrix(cm,gestureNames,setName)
         pp.savefig()
-        print cm
-        print f1
-       
-    testData = createData('stephan', usedGestures)
-    t_prediction = bestFlow(testData[0])
-    fig = plt.figure()
-    fig.suptitle(setName)
-    plt.clf()
-    plt.subplot(211)
-    plt.title('Prediction on test stephan')
-    plt.plot(t_prediction)
-    plt.plot(testData[1])
-    plt.subplot(212)
-    plt.title('Smoothed prediction')
-    plt.plot(runningAverage(t_prediction, 10))
-    plt.plot(testData[1])
-    pp.savefig()
 
-    cm, missClassified = calcConfusionMatrix(t_prediction, set.getDataForTraining(usedGestures,2)[1])
-    f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
-    confMatrices.append(cm)
-    missClassifiedGestures.append(missClassified)
-    f1Scores.append(f1)
-    plot_confusion_matrix(cm,gestureNames,setName)
-    pp.savefig()
-    print cm
-    print f1 
+    
+    for iFile in testFiles:
+        testData = createData(iFile, usedGestures)
+        t_prediction = bestFlow(testData[0])
+        fig = plt.figure(figsize=(20,20))
+        fig.suptitle(setName)
+        plt.clf()
+        plt.subplot(211)
+        plt.title('Prediction on test stephan')
+        plt.plot(t_prediction)
+        plt.plot(testData[1])
+        plt.subplot(212)
+        plt.title('Smoothed prediction')
+        plt.plot(runningAverage(t_prediction, 10))
+        plt.plot(testData[1])
+        pp.savefig()
+    
+        cm, missClassified = calcConfusionMatrix(t_prediction, testData[1])
+        f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
+        confMatrices.append(cm)
+        missClassifiedGestures.append(missClassified)
+        f1Scores.append(f1)
+        plot_confusion_matrix(cm,gestureNames,setName)
+        pp.savefig()
     
     
     totalCm = confMatrices[0]
@@ -406,7 +405,7 @@ if __name__ == '__main__':
     #---------------------------------------------------------------------------------------------------#  
 
     inFiles = inputFiles
-    result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
+    result = [str(now),name,inputFiles,randTestFiles,opt.loss_function, \
               'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
     
 
@@ -422,6 +421,8 @@ if __name__ == '__main__':
     result.append(sparseDict.get('_instance')) 
     result.append('inputSignals')
     result.append(sparseDict.get('inputSignals'))
+    result.append('useNormalized')
+    result.append(sparseDict.get('useNormalized'))
     result.append('input_scaling')
     result.append(sparseDict.get('input_scaling'))
     result.append('output_dim')
@@ -471,9 +472,9 @@ if __name__ == '__main__':
     
     if name != 'test':
         writeToReportFile(result)
-        np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,testFiles=testFiles,\
+        np.savez(npzFilePath,errors=opt.errors,params=opt.parameters,paraRanges=opt.parameter_ranges,randTestFiles=randTestFiles,\
                  confMatrices=confMatrices, \
-                 testFileList=testFiles,\
+                 testFileList=randTestFiles,\
                  f1Scores=f1Scores,\
                  bestRes_w_in=bestFlow[0].w_in, \
                  bestRes_w=bestFlow[0].w, \

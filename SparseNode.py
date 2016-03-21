@@ -7,9 +7,9 @@ class SparseNode(LeakyReservoirNode):
 	useSparse = False
 	connectivity = 0.1
 	inputSignals = 'FGA'
-	colScaling = False
-	colScaleFactor = [ 0.19532664, 0.07406439, 0.18426636, 2.57861928,1.19940363,2.51488647,6.37374965,4.49400088,5.75603514]
-
+	useNormalized = 0
+	colStdFactor = [ 0.19532664, 0.07406439, 0.18426636, 2.57861928,1.19940363,2.51488647,6.37374965,4.49400088,5.75603514]
+	colMaxFactor = [3.07070231,0.62703943,3.12939386,19.735355,14.564295,20.696224,48.78246,31.965286,49.010956]
 		
 	def initialize(self):
 		LeakyReservoirNode.initialize(self)
@@ -20,7 +20,13 @@ class SparseNode(LeakyReservoirNode):
 				#print 'using' +str(self.input_dim) + '  ' + str(self.output_dim) + '  '+str(self.input_scaling)
 				for i in range(self.input_dim):
 					self.w_in[np.random.randint(self.output_dim),i]=self.input_scaling
-		self.w_in = self.w_in / self.colScaleFactor
+		if self.useNormalized == 0:
+			pass
+		elif self.useNormalized == 1:
+			self.w_in = self.w_in / self.colStdFactor
+		elif self.useNormalized == 2:
+			self.w_in = self.w_in / self.colMaxFactor
+				
 		if self.inputSignals == 'FGA':
 			pass
 		elif self.inputSignals == 'FG':

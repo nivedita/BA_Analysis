@@ -165,6 +165,39 @@ def plotMinErrors(errs, params,ranges,pp):
         #TODO:plot all dims
     
 
+def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
+    minVal = np.min(errs)
+    min_ind = np.unravel_index(errs.argmin(), errs.shape)
+    
+    minAxes = range(0,len(params))
+    minAxes.remove(plotAxis)
+    minAxes.remove(xAxis)
+    minAxes.remove(yAxis)
+    totalMins = np.min(errs,tuple(minAxes),None,True)
+    print totalMins.shape
+    for i in range(0, len(ranges[plotAxis])):
+        plt.figure()
+        plt.title(params[plotAxis][1] + ' = ' + str(ranges[plotAxis][i]))
+        mins = np.delete(totalMins, range(0,i), plotAxis)
+        mins = np.delete(mins, range(1,100),plotAxis)
+        mins = np.squeeze(mins)
+        plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=minVal, vmax=1)
+        plt.xlabel(params[xAxis][1])
+        plt.ylabel(params[yAxis][1])
+                
+        plt.colorbar()
+        if ranges is not None:
+            tick_marks = np.arange(len(mins[0]))
+            plt.xticks(tick_marks, ranges[yAxis], rotation=45)
+            tick_marks = np.arange(len(mins))
+            plt.yticks(tick_marks, ranges[xAxis])
+        plt.tight_layout()
+                
+        if pp is not None:
+            pp.savefig()
+                
+    
+
 def getMinima(errs, nr=-1):
     
     inds = argrelextrema(errs, np.less,order=1, mode='wrap')

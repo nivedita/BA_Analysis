@@ -16,7 +16,10 @@ def readFileToNumpy(fileName):
     x=list(reader)
     return numpy.array(x[1:]).astype('float')
 
-def separateInputData(fileData):
+def separateInputData(fileData,removeErrors=True):
+    if removeErrors:
+        error_inds = fileData[:,-1]==True
+        fileData = fileData[not error_inds]
     fused = numpy.atleast_2d(fileData[:,1:4])
     gyro = numpy.atleast_2d(fileData[:,4:7])
     acc = numpy.atleast_2d(fileData[:,7:10])
