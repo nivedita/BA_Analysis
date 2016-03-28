@@ -169,6 +169,9 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
     minVal = np.min(errs)
     min_ind = np.unravel_index(errs.argmin(), errs.shape)
     
+    nParams = len(params)
+    if plotAxis >= nParams or xAxis >= nParams or yAxis >= nParams or plotAxis is None or xAxis is None or yAxis is None:
+        return
     minAxes = range(0,len(params))
     minAxes.remove(plotAxis)
     minAxes.remove(xAxis)
@@ -180,7 +183,7 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
         plt.title(params[plotAxis][1] + ' = ' + str(ranges[plotAxis][i]))
         mins = np.delete(totalMins, range(0,i), plotAxis)
         mins = np.delete(mins, range(1,100),plotAxis)
-        mins = np.squeeze(mins)
+        mins = np.atleast_2d(np.squeeze(mins))
         plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=minVal, vmax=1)
         plt.xlabel(params[xAxis][1])
         plt.ylabel(params[yAxis][1])

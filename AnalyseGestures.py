@@ -1,5 +1,5 @@
 import numpy
-import matplotlib
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 #plt.switch_backend('agg')
 import scipy
@@ -23,20 +23,23 @@ def getAllDataSetNames():
     nikeFiles = ['nike_0_fullSet.npz','nike_1_fullSet.npz','nike_2_fullSet.npz','nike_3_fullSet.npz','nike_4_fullSet.npz','nike_5_fullSet.npz','nike_8_fullSet.npz','nike_9_fullSet.npz']
     stephanFiles = ['stephan_0_fullSet.npz','stephan_1_fullSet.npz','stephan_2_fullSet.npz','stephan_3_fullSet.npz','stephan_4_fullSet.npz','stephan_5_fullSet.npz','stephan_8_fullSet.npz','stephan_9_fullSet.npz']
     nadjaFiles = ['nadja_0_fullSet.npz','nadja_1_fullSet.npz','nadja_2_fullSet.npz','nadja_3_fullSet.npz','nadja_4_fullSet.npz','nadja_5_fullSet.npz','nadja_8_fullSet.npz','nadja_9_fullSet.npz']
+    lineFiles = ['line_0_fullSet.npz','line_1_fullSet.npz','line_2_fullSet.npz','line_3_fullSet.npz','line_4_fullSet.npz','line_5_fullSet.npz','line_6_fullSet.npz','line_7_fullSet.npz','line_8_fullSet.npz','line_9_fullSet.npz' \
+                 ,'line_10_fullSet.npz','line_11_fullSet.npz','line_12_fullSet.npz','line_13_fullSet.npz','line_14_fullSet.npz','line_15_fullSet.npz']
     
     inputFiles = []
     inputFiles.extend(julianFiles)
     inputFiles.extend(nikeFiles)
     inputFiles.extend(stephanFiles)
     inputFiles.extend(nadjaFiles)
+    inputFiles.extend(lineFiles)
+    
     inputFiles.sort()
     
     return inputFiles
 
 
 def analyseBias():
-    pass
-if __name__ == '__main__':
+
     dsNames = getAllDataSetNames()
     dataSets = []
     for dsName in dsNames:
@@ -59,8 +62,70 @@ if __name__ == '__main__':
 
     pass
 
-def main():
+
+
+def makeScatterPlots(totalTotalGesturePower,totalTotalGestureRotation,totalTotalGestureLenghts):
     
+    gesturePowerMeans = map(np.mean,totalTotalGesturePower)
+    gestureLengthMeans = map(np.mean,totalTotalGestureLenghts)
+    gestureRotationMeans = map(np.mean,totalTotalGestureRotation)
+    pdfScatterFilePath = resultsPath+'pdf/PowerLengthScatter.pdf'
+    pp = PdfPages(pdfScatterFilePath)
+    plt.figure()
+    plt.title('Gesture power vs length')
+    plt.xlabel('Absolute power in m/s^2')
+    plt.ylabel('Absolute rotation in rad')
+    plt.scatter(gesturePowerMeans, gestureLengthMeans, marker='o')
+    
+    for i in range(0,16):
+        plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureLengthMeans[i]), xytext=(gesturePowerMeans[i]+5, gestureLengthMeans[i]+5))
+    pp.savefig()
+    plt.figure()
+    plt.title('Gesture power vs rotation')
+    plt.scatter(gesturePowerMeans, gestureRotationMeans,marker='o')
+    plt.xlabel('Power')
+    plt.ylabel('Rotation')
+    for i in range(0,16):
+        plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureRotationMeans[i]), xytext=(gesturePowerMeans[i], gestureRotationMeans[i]))
+    pp.savefig()
+    pp.close()
+    
+    fig = plt.figure(figsize=(10,10))
+    plt.title('Gesture power vs rotation')
+
+    plt.xlabel('Power')
+    plt.ylabel('Rotation')
+    cmap = mpl.cm.Set1
+    legendEntries = []
+    legendLabels = []
+    for i in range(len(totalTotalGesturePower)):
+        legEnt = plt.scatter(totalTotalGesturePower[i], totalTotalGestureRotation[i],marker='.',color=cmap(i / float(len(totalTotalGesturePower))) )
+        legendEntries.append(legEnt)
+        legendLabels.append(i)
+    plt.legend(legendEntries,legendLabels)
+    plt.scatter(gesturePowerMeans, gestureRotationMeans,marker='o')
+    for i in range(0,16):
+        plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureRotationMeans[i]), xytext=(gesturePowerMeans[i], gestureRotationMeans[i]))
+    
+    pdfIndvScatterFilePath = resultsPath+'pdf/PowerLengthScatter_indv.pdf'
+    pp = PdfPages(pdfIndvScatterFilePath)
+    pp.savefig()
+    
+    plt.xlim((0,750))
+    plt.ylim((0,300))
+    
+    pp.savefig()
+    pp.close()
+
+
+
+
+    
+    
+    
+def main():
+    pass
+if __name__ == '__main__':    
     plt.close('all')
     resultsPath = getProjectPath()+'results/'
     
@@ -86,7 +151,7 @@ def main():
     totalTotalGesturePower = []
     totalTotalGestureAvgPower=[]
     totalTotalGestureRotation = []
-    for gestureNr in range(0,10):
+    for gestureNr in range(0,16):
         totalSignalLengths = []
         totalSignalPowers = []
         totalSignalAvgPowers = []
@@ -163,6 +228,8 @@ def main():
             totalTotalGesturePower.append(np.concatenate(tuple(totalSignalPowers)))
             totalTotalGestureAvgPower.append(np.concatenate(tuple(totalSignalAvgPowers)))
             totalTotalGestureRotation.append(np.concatenate(tuple(totalSignalRotation)))
+        else:
+            print iFile
         
     fig = plt.figure()
     plt.title('Length')
@@ -182,7 +249,14 @@ def main():
     pp.savefig()
     
     pp.close()
-    #plt.close('all')
+    plt.close('all')
     
-    print 'std deviation: '+str(np.std(appendDS(dataSets, [0,1,2,3,4,5])[0],0))
-    print 'max: ' +str(np.max(appendDS(dataSets, [0,1,2,3,4,5])[0],0))
+    
+    # ---------------------------------------------------------------------------------- #
+    # Making scatter plots:
+    # ---------------------------------------------------------------------------------- #
+    makeScatterPlots(totalTotalGesturePower,totalTotalGestureRotation,totalTotalGestureLenghts)
+    
+    
+    #print 'std deviation: '+str(np.std(appendDS(dataSets, [0,1,2,3,4,5])[0],0))
+    #print 'max: ' +str(np.max(np.abs(appendDS(dataSets, [0,1,2,3,4,5])[0]),0))

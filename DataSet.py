@@ -143,12 +143,14 @@ def appendDS(dataSets, usedGestures):
                   dataSets[i].getDataForTraining(usedGestures,2)[1],0))
     return result
 
-def createData(dataSetName, usedGestures):
+def createData(dataSetName, inputGestures, usedGestures):
     dataSets= []
-    for gesture in usedGestures:
+    for gesture in inputGestures:
         fullName = dataSetName + '_' +str(gesture) + '_' + 'fullSet.npz'
         dataSets.append(createDataSetFromFile(fullName))
-    return appendDS(dataSets, usedGestures)
+    resultInputs,resultTargets = appendDS(dataSets, inputGestures)
+    inds = np.where(np.in1d(inputGestures, usedGestures))[0]
+    return (resultInputs,resultTargets[:,inds])
 #def appendDataSets(ds1, ds2):
 #    fused = np.append(ds1.fused, ds2.fused, 0)
 #    gyro = np.append(ds1.gyro, ds2.gyro, 0)

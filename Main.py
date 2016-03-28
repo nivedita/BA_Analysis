@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -196,11 +196,13 @@ def main():
 
 if __name__ == '__main__':
 
-    #name = 'TestTMUX'
+    #name = 'test'
     name = input('name')
     normalized = False
     nmse = False
-    usedGestures = [0,1,2,3,4,5,8,9]
+    inputGestures = [0,1,2,3,4,5,8,9]
+    usedGestures = [8,9]
+    
 
     plt.close('all')
     now = datetime.datetime.now()
@@ -209,17 +211,16 @@ if __name__ == '__main__':
     pdfFilePath = resultsPath+'pdf/'+pdfFileName
     npzFileName = now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.npz'
     npzFilePath = resultsPath+'npz/'+npzFileName
-    resNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_res.p'
-    readNodePath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'_read.p'
+    bestFlowPath = resultsPath+'nodes/'+now.strftime("%Y-%m-%d-%H-%M")+'_'+name+'.p'
     
-    totalGestureNames = ['left','right','forward','backward','bounce up','bounce down','','','shake lr','shape ud','no gesture']
+    totalGestureNames = ['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud','no gesture']
     gestureNames = []
     for i in usedGestures:
         gestureNames.append(totalGestureNames[i])
     gestureNames.append('no gesture')
     
     
-    inputFiles = ['julian','nike','nadja']
+    inputFiles = ['julian','nike','nadja','line']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['stephan']
@@ -239,7 +240,7 @@ if __name__ == '__main__':
     dataStep = []
     
     for fileName in inputFiles:
-        dataStep.append(createData(fileName, usedGestures))
+        dataStep.append(createData(fileName, inputGestures,usedGestures))
     data = [dataStep,dataStep]
 
 
@@ -268,20 +269,33 @@ if __name__ == '__main__':
     ######
     
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA','FG','FA','GA'], \
-                                        'useNormalized':[0,1,2], \
+                                        'inputSignals':['FGA'], \
+                                        'useNormalized':[1], \
                                         'leak_rate':[1,0.2], \
                                         'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
                                         'output_dim':[800], \
-                                        'input_scaling':mdp.numx.arange(0.1, 1.8, 0.2), \
+                                        'input_scaling':mdp.numx.arange(1, 1.8, 0.5), \
                                         '_instance':range(3)}, \
                              readoutnode:{'ridge_param':[0.01]}}
+    gridsearch_parameters = {reservoir:{'useSparse':[True], \
+                                        'inputSignals':['FGA'], \
+                                        'useNormalized':[2], \
+                                        'leak_rate':[0.2], \
+                                        'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.4), \
+                                        'output_dim':[400], \
+                                         'input_scaling':mdp.numx.arange(1.8, 1.9, 0.5), \
+                                        '_instance':range(3)}, \
+                             readoutnode:{'ridge_param':[0.010]}} 
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     else:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random, progress=True)
+        
+    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=5, verbose=True)
+    #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
+    mdp.activate_extension("parallel")
+    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
     
@@ -300,6 +314,10 @@ if __name__ == '__main__':
     plotMinErrors(opt.errors, opt.parameters, opt.parameter_ranges, pp)
     
     i = 0
+    inputSignalAxis = -1
+    inputScalingAxis = -1
+    normAxis = -1
+    
     for node , param in opt.parameters:
         if param == 'inputSignals':
             inputSignalAxis = i
@@ -309,9 +327,15 @@ if __name__ == '__main__':
             normAxis = i
         i =i+1
     
-    plotAlongAxisErrors(opt.errors, opt.parameters, opt.parameter_ranges, normAxis, inputSignalAxis, inputScalingAxis, pp)
+    if normAxis != -1:
+        if inputSignalAxis != -1:
+            if inputScalingAxis != -1:
+                plotAlongAxisErrors(opt.errors, opt.parameters, opt.parameter_ranges, normAxis, inputSignalAxis, inputScalingAxis, pp)
     
     bestFlow = opt.get_optimal_flow(True)
+    
+    
+    
     bestFlow.train(data)
     
     
@@ -353,7 +377,6 @@ if __name__ == '__main__':
     f1Scores = []
     for set, setName in zip(randTestSets,randTestFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
-        testData = createData('nadja', usedGestures)
         t_prediction = bestFlow([set.getDataForTraining(usedGestures, 2)[0]])
         fig = plt.figure()
         fig.suptitle(setName)
@@ -378,13 +401,13 @@ if __name__ == '__main__':
 
     
     for iFile in testFiles:
-        testData = createData(iFile, usedGestures)
+        testData = createData(iFile, inputGestures, usedGestures)
         t_prediction = bestFlow(testData[0])
         fig = plt.figure(figsize=(20,20))
         fig.suptitle(setName)
         plt.clf()
         plt.subplot(211)
-        plt.title('Prediction on test stephan')
+        plt.title('Prediction on test ' +iFile)
         plt.plot(t_prediction)
         plt.plot(testData[1])
         plt.subplot(212)
@@ -409,7 +432,7 @@ if __name__ == '__main__':
     pp.savefig()
    
     pp.close();  
-    plt.close('all')
+    #plt.close('all')
     
     print pdfFilePath    
     #---------------------------------------------------------------------------------------------------#
@@ -429,28 +452,18 @@ if __name__ == '__main__':
     sparseDict = minErrDict.get(reservoir)
     ridgeDict = minErrDict.get(readoutnode)
     
-    result.append('_instance')
-    result.append(sparseDict.get('_instance')) 
-    result.append('inputSignals')
-    result.append(sparseDict.get('inputSignals'))
-    result.append('useNormalized')
-    result.append(sparseDict.get('useNormalized'))
-    result.append('input_scaling')
-    result.append(sparseDict.get('input_scaling'))
-    result.append('output_dim')
-    result.append(sparseDict.get('output_dim'))
-    result.append('spectral_radius')
-    result.append(sparseDict.get('spectral_radius'))
-    result.append('useSparse')
-    result.append(sparseDict.get('useSparse'))
-    result.append('leakRate')
-    result.append(sparseDict.get('leak_rate'))
-    result.append('ridgePara')
-    result.append(ridgeDict.get('ridge_param')) 
+    for para in ['_instance','inputSignals','useNormalized','input_scaling','output_dim','spectral_radius','useSparse','leak_rate','ridge_param']:
+        result.append(para)
+        if sparseDict is not None and sparseDict.has_key(para):
+            result.append(sparseDict.get(para)) 
+        elif ridgeDict is not None and ridgeDict.has_key(para):
+            result.append(ridgeDict.get(para)) 
+        else:
+            result.append('')
      
      
      
-     
+    print 'w outputdim:' + str(bestFlow[0].w.shape)
      
     
     for a in opt.get_minimal_error()[1].iterkeys():
@@ -491,7 +504,8 @@ if __name__ == '__main__':
                  bestRes_w_in=bestFlow[0].w_in, \
                  bestRes_w=bestFlow[0].w, \
                  )
-
+        bestFlow.save(bestFlowPath)
+        
 
     
     

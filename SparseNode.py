@@ -4,13 +4,19 @@ from Oger.nodes.reservoir_nodes import LeakyReservoirNode
 
 
 class SparseNode(LeakyReservoirNode):
-	useSparse = False
-	connectivity = 0.1
-	inputSignals = 'FGA'
-	useNormalized = 0
+
 	colStdFactor = [ 0.19532664, 0.07406439, 0.18426636, 2.57861928,1.19940363,2.51488647,6.37374965,4.49400088,5.75603514]
-	colMaxFactor = [3.07070231,0.62703943,3.12939386,19.735355,14.564295,20.696224,48.78246,31.965286,49.010956]
-		
+	colMaxFactor = [3.07070231,0.62703943,3.12939386,19.78702,14.564295,20.696224,48.78246,46.557495,49.010956 ]
+	
+	def __init__(self, leak_rate=1, *args, **kwargs):
+		LeakyReservoirNode.__init__(self,leak_rate, *args, **kwargs)
+		self.useSparse = False
+		self.connectivity = 0.1
+		self.inputSignals = 'FGA'
+		self.useNormalized = 0
+		print 'called'
+	
+	
 	def initialize(self):
 		LeakyReservoirNode.initialize(self)
 		if self.useSparse:
@@ -42,6 +48,8 @@ class SparseNode(LeakyReservoirNode):
 			self.w_in[:,6:9]=0
 		elif self.inputSignals == 'A':
 			self.w_in[:,0:6]=0
+		print(self.output_dim)
+		print(self.spectral_radius)
 			
 		
 			

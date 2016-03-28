@@ -18,8 +18,8 @@ def readFileToNumpy(fileName):
 
 def separateInputData(fileData,removeErrors=True):
     if removeErrors:
-        error_inds = fileData[:,-1]==True
-        fileData = fileData[not error_inds]
+        error_inds = fileData[:,-1]==False
+        fileData = fileData[error_inds]
     fused = numpy.atleast_2d(fileData[:,1:4])
     gyro = numpy.atleast_2d(fileData[:,4:7])
     acc = numpy.atleast_2d(fileData[:,7:10])
@@ -169,7 +169,7 @@ if __name__ == '__main__':
     
 
 
-    inputFileName = ["2016-03-19-11-26-58-nadja_fullSet.csv"]
+    inputFileName = ["2016-03-23-20-42-49-line_fullSet.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
