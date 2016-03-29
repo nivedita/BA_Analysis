@@ -36,21 +36,10 @@ def transformToDelta(vals):
     return newVals
 
 def removeLOverflow(fused):
-    for i in range(0,len(fused)):
-        if fused[i,0] > numpy.pi:
-            fused[i,0] = fused[i,0] - 2*numpy.pi
-        if fused[i,0] < -numpy.pi:
-            fused[i,0] = fused[i,0] + 2*numpy.pi
-            
-        if fused[i,1] > numpy.pi:
-            fused[i,1] = fused[i,1] - 2*numpy.pi
-        if fused[i,1] < -numpy.pi:
-            fused[i,1] = fused[i,1] + 2*numpy.pi
-
-        if fused[i,2] > numpy.pi:
-            fused[i,2] = fused[i,2] - 2*numpy.pi
-        if fused[i,2] < -numpy.pi:
-            fused[i,2] = fused[i,2] + 2*numpy.pi
+    for j in range(0,3):
+        for i in range(1,len(fused)):
+            if numpy.abs(fused[i-1,j] - fused[i,j]) > numpy.pi:
+                fused[i:,j] = fused[i:,j]  * -1 
     return fused
 
 def applyActivationFilter(inputData, width):
@@ -169,18 +158,18 @@ if __name__ == '__main__':
     
 
 
-    inputFileName = ["2016-03-23-20-42-49-line_fullSet.csv"]
+    inputFileName = ["2016-03-14-10-30-47-nike_fullSet_0.csv"]
     
     fileData = numpy.zeros((1,31))
     for fileName in inputFileName:
         newData = readFileToNumpy(getProjectPath()+'dataSets\\'+fileName)
+        print newData.shape
         fileData = numpy.append(fileData,newData,0)
     
     fused, gyro, acc, targets = separateInputData(fileData)
 
-
-    fused = transformToDelta(fused)
-    fused = removeLOverflow(fused)
+    #fused = removeLOverflow(fused)
+    #fused = transformToDelta(fused)
     
     _, f_means, f_stds = centerAndNormalize(fused)
     _, g_means, g_stds = centerAndNormalize(gyro)
@@ -202,10 +191,5 @@ if __name__ == '__main__':
         a = numpy.concatenate((t_fused,t_gyro,t_acc,t_target,t_accFilter),1)
         dataSets.append(a)
         gestureSets.append(numpy.max(targets[start:end,:],0))
-    plotData(dataSets[0])
-    plotData(dataSets[1])    
-    plotData(dataSets[2])    
-    plotData(dataSets[3])    
-    plotData(dataSets[4])    
-    plotData(dataSets[5])    
+
     

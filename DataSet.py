@@ -92,10 +92,10 @@ class DataSet(object):
             target = np.append(target,readOutTrainingData,0)
         return (data,target)
     
-    def getAllSignals(self, gesture, targetNr = 2):
+    def getAllSignals(self, gesture = -1, targetNr = 2):
         signals = []
         target = self.targets[:,targetNr]
-        if self.gestures[gesture] != 0:
+        if self.gestures[gesture] != 0 or gesture == -1:
             changesT = np.where(target[:-1] != target[1:])[0] + 1
             lastInd = 0
             for ind in changesT:
@@ -143,14 +143,24 @@ def appendDS(dataSets, usedGestures):
                   dataSets[i].getDataForTraining(usedGestures,2)[1],0))
     return result
 
-def createData(dataSetName, inputGestures, usedGestures):
+def createData(dataSetName, inputGestures, usedGestures, scaleFactor = 1):
     dataSets= []
     for gesture in inputGestures:
         fullName = dataSetName + '_' +str(gesture) + '_' + 'fullSet.npz'
         dataSets.append(createDataSetFromFile(fullName))
     resultInputs,resultTargets = appendDS(dataSets, inputGestures)
     inds = np.where(np.in1d(inputGestures, usedGestures))[0]
-    return (resultInputs,resultTargets[:,inds])
+    
+    if scaleFactor != 1:
+        scaledInputs = np.zeros((resultInputs.shape[0]*scaleFactor,resultInputs.shape[1]))
+        scaledTargets= np.zeros((resultTargets.shape[0]*scaleFactor,resultTargets.shape[1]))
+        for l,line in enumerate(resultInputs):
+            for i in range(scaleFactor):
+                scaledInputs[l*scaleFactor+i,:] = line
+                scaledTargets[l*scaleFactor+i,:] = resultTargets[l,:]
+        return (scaledInputs,scaledTargets[:,inds])
+    else: 
+        return (resultInputs,resultTargets[:,inds])
 #def appendDataSets(ds1, ds2):
 #    fused = np.append(ds1.fused, ds2.fused, 0)
 #    gyro = np.append(ds1.gyro, ds2.gyro, 0)

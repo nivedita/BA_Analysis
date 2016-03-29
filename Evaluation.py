@@ -68,13 +68,23 @@ def calcF1ScoreFromConfusionMatrix(cm, replaceNan = True):
     return f1Scores, occurences
 
 
-def calc1MinusF1Average(input_signal,target_signal):
+def calc1MinusF1Average(input_signal,target_signal,noSilence = False):
     cm, _ = calcConfusionMatrix(input_signal, target_signal)
     f1Scores, _ = calcF1ScoreFromConfusionMatrix(cm)
+    if noSilence:
+        return 1-np.mean(f1Scores[:-1])
     return 1-np.mean(f1Scores)
     
     
-
+def calcFloatingAverage(input_signal,target_signal):
+    offset = 5
+    floatingSum = np.zeros(input_signal.shape)
+    for i in range(offset,input_signal.shape[0]):
+        floatingSum[i] = np.sum(input_signal[i-offset:i,:],0)
+    return floatingSum
+    
+def calcF1OverFloatingAverage(input_signal,target_signal):
+    return calc1MinusF1Average(calcFloatingAverage(input_signal, target_signal),target_signal)
 
 def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
     plt.figure()
