@@ -30,31 +30,44 @@ class DataSet(object):
 
 
        
-    def plot(self, targetNr=2):
-        plt.figure()
+    def plot(self, targetNr=2,normalized = -1):
+        fig = plt.figure(figsize=(10,10))
         plt.clf()
         plt.subplot(411)
         plt.title('Fused')
-        plt.plot(self.fused)
-        plt.plot(self.targets[:,targetNr])
-        
+        labels = ['X', 'Y', 'Z']
+        for i in range(3):
+            plt.plot(self.fused[:,i],label=labels[i])
+        #plt.plot(self.targets[:,targetNr],label='Target')
+        plt.ylim(-1.5,1.5)
+        plt.legend()
         
         plt.subplot(412)
         plt.title('Gyro')
-        plt.plot(self.gyro)
-        plt.plot(self.targets[:,targetNr])
-
+        labels = ['X', 'Y', 'Z']
+        for i in range(3):
+            plt.plot(self.gyro[:,i],label=labels[i])
+        #plt.plot(self.targets[:,targetNr],label='Target')
+        plt.legend()
         
         plt.subplot(413)
         plt.title('Acc')
-        plt.plot(self.acc)
-        plt.plot(self.targets[:,targetNr])
-        
+        labels = ['X', 'Y', 'Z']
+        for i in range(3):
+            plt.plot(self.acc[:,i],label=labels[i])
+        #plt.plot(self.targets[:,targetNr],label='Target')
+        plt.legend()
         
         plt.subplot(414)
-        plt.title('Targets')
-        plt.plot(self.targets)
+        plt.title('Marker and Target')
+        labels = ['Marker', 'Target']
+        plt.plot(self.targets[:,0], label=labels[0])
+        plt.plot(self.targets[:,2], label=labels[1])
+        plt.ylim(-0.5,1.5)
+        plt.legend()
+        plt.tight_layout()
         plt.show()
+        return fig
         
     def getData(self):
         return  np.concatenate((self.fused,self.gyro,self.acc,self.targets),1)
@@ -68,7 +81,7 @@ class DataSet(object):
     def getGyro(self):
         return self.gyro 
     
-    def getDataForTraining(self, classNrs, targetNr=2, multiplier = 1, normalized = False):
+    def getDataForTraining(self, classNrs, targetNr=2, multiplier = 1, normalized = False, power = False):
         inputData = np.empty((0,0))
         stds = np.empty((0,0))
         inputData = self.fused
@@ -85,6 +98,11 @@ class DataSet(object):
             i = i+1
         if normalized:
             inputData = inputData/stds
+        if power:
+            inputData = np.append(inputData, np.atleast_2d(normPower(inputData)).T, 1)
+            inputData = np.append(inputData, np.atleast_2d(normRot(inputData)).T, 1)
+            inputData = np.append(inputData, np.atleast_2d(normFused(inputData)).T, 1)
+            
         data = inputData
         target = readOutTrainingData
         for i in range(1,multiplier):
@@ -120,6 +138,16 @@ class DataSet(object):
         np.savez(getProjectPath()+'dataSets/'+fileName,  \
                     fused=self.fused,gyro=self.gyro,acc=self.acc,targets=self.targets,means=self.means,stds=self.stds,gestures=self.gestures)
         
+        
+    
+def normPower(X):
+    print X.shape
+    return np.linalg.norm(X[:,6:9], None, 1) 
+def normRot(X):
+    return np.linalg.norm(X[:,3:6], None, 1) 
+def normFused(X):
+    return np.linalg.norm(X[:,0:3], None, 1) 
+
         
 def createDataSetFromFile(fileName):
     data = np.load(getProjectPath()+'dataSets/'+fileName)

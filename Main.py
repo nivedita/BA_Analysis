@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -192,16 +192,16 @@ def w_in_init_function(output_dim, input_dim):
 
 
 def main(name, inputGestures, usedGestures):
-       
+     pass  
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
 
     #name = 'test'
-    #name = input('name')
+    name = input('name')
     normalized = False
     nmse = False
-    #inputGestures = [0,1,2,3]
-    #usedGestures = [0,1,2,3]
+    inputGestures = [0,1,2,3]
+    usedGestures = [0,1,2,3]
     
 
     plt.close('all')
@@ -221,12 +221,12 @@ def main(name, inputGestures, usedGestures):
     gestureNames.append('no gesture')
     
     
-    inputFiles = ['julian','nike','line','stephan','nadja']
+    inputFiles = ['julian','nike','line','stephan']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['stephan']
+    testFiles = ['nadja']
     #randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
-    randTestFiles = ['lana_0_0.npz']
+    randTestFiles = []
     
     pp = PdfPages(pdfFilePath)
     
@@ -279,22 +279,22 @@ def main(name, inputGestures, usedGestures):
                              readoutnode:{'ridge_param':[0.01]}}
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
-                                        'useNormalized':[0,1,2], \
+                                        'useNormalized':[1], \
                                         'leak_rate':[1,0.1,0.01], \
-                                        'spectral_radius':mdp.numx.arange(0.1, 1.1, 0.2), \
-                                        'output_dim':[5,15,30,60], \
-                                         'input_scaling':mdp.numx.arange(0.2, 2, 0.3), \
-                                        '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':[0.01,0.0001,0.000001]}} 
+                                        'spectral_radius':mdp.numx.arange(0.1, 1.1, 0.89), \
+                                        'output_dim':[100], \
+                                         'input_scaling':mdp.numx.arange(0.2, 2, 0.6), \
+                                        '_instance':range(3)}, \
+                             readoutnode:{'ridge_param':[0.0001]}} 
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     else:
-        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calcF1OverFloatingAverage)    
+        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusConfusionFromMaxTargetSignal)    
         
         
-    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=20, verbose=True)
+    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
     mdp.activate_extension("parallel")
     opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
@@ -399,7 +399,7 @@ def main(name, inputGestures, usedGestures):
         confMatrices.append(cm)
         missClassifiedGestures.append(missClassified)
         f1Scores.append(f1)
-        plot_confusion_matrix(cm,gestureNames,setName)
+        plot_confusion_matrix(cm,gestureNames,setName + ' - full gesture ranking')
         pp.savefig()
 
     
@@ -408,7 +408,7 @@ def main(name, inputGestures, usedGestures):
         t_prediction = bestFlow(testData[0])
         t_target = testData[1]
         fig = plt.figure(figsize=(20,20))
-        fig.suptitle(setName)
+        fig.suptitle(iFile)
         plt.clf()
         plt.subplot(211)
         plt.title('Prediction on test ' +iFile)
@@ -422,11 +422,16 @@ def main(name, inputGestures, usedGestures):
     
         cm, missClassified = calcConfusionMatrix(t_prediction, testData[1])
         f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
-        confMatrices.append(cm)
+       
         missClassifiedGestures.append(missClassified)
-        f1Scores.append(f1)
-        plot_confusion_matrix(cm,gestureNames,setName)
+        plot_confusion_matrix(cm,gestureNames,iFile + ' - full gesture ranking')
         pp.savefig()
+        cm, _, f1 = visCalcConfusionFromMaxTargetSignal(t_prediction, t_target)
+        plot_confusion_matrix(cm,gestureNames,iFile)
+        pp.savefig()
+        
+        f1Scores.append(f1)
+        confMatrices.append(cm)
     
     
     totalCm = confMatrices[0]
@@ -517,7 +522,7 @@ def main(name, inputGestures, usedGestures):
         bestFlow.save(bestFlowPath)
         
 
-    
+    print 'f1test:' + str(f1Scores)
     
     
     

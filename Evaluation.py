@@ -4,6 +4,10 @@ from matplotlib.pyplot import *
 from gettext import ngettext
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.signal._peak_finding import argrelextrema
+import sklearn
+import sklearn.metrics
+
+
 
 def mergePredictions(predictions, addTreshold=False, treshold=0.0, plot=False):
     if addTreshold:
@@ -107,8 +111,50 @@ def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Bl
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+
+###
+### counts max of last n steps
+###
+def createMaxTargetSignal(t_prediction, treshold):
+    filterLength = 6
+    t_max = np.zeros((t_prediction.shape[0],1))
+    t_prediction = np.append(t_prediction, np.ones((t_prediction.shape[0],1))*treshold, 1)
+    for i in range(1,filterLength):
+        t_max[i] = np.argmax(np.bincount(np.argmax(t_prediction[0:i,:], 1)))
+    for i in range(filterLength,t_prediction.shape[0]):
+        t_max[i] = np.argmax(np.bincount(np.argmax(t_prediction[i-filterLength:i,:], 1)))
+    return t_max
     
     
+
+def calc1MinusConfusionFromMaxTargetSignal(input_signal,target_signal, vis=False):
+    treshold = 0.4
+    maxPred= createMaxTargetSignal(input_signal,treshold)
+    maxTarg= createMaxTargetSignal(target_signal, treshold)
+    confMatrix = sklearn.metrics.confusion_matrix(maxTarg, maxPred,None)
+    f1scores = sklearn.metrics.f1_score(maxTarg,maxPred,average=None)
+    print f1scores
+    f1score = np.mean(f1scores)
+
+    if vis:
+        plt.figure()
+        plt.plot(maxPred)
+        plt.plot(maxTarg)
+        plt.plot(input_signal)
+        plot_confusion_matrix(confMatrix)
+        #print confMatrix
+    #print f1score
+    return 1-f1score
+        
+def visCalcConfusionFromMaxTargetSignal(input_signal,target_signal):
+    treshold = 0.4
+    maxPred= createMaxTargetSignal(input_signal,treshold)
+    maxTarg= createMaxTargetSignal(target_signal, treshold)
+    confMatrix = sklearn.metrics.confusion_matrix(maxTarg, maxPred,None)
+    f1scores = sklearn.metrics.f1_score(maxTarg,maxPred,average=None)
+    f1score = np.mean(f1scores)
+    return confMatrix, f1scores, f1score
+
 
 def countTargetAndPredictedSignalsPerGesture(input_signal,target_signal):
     results = []

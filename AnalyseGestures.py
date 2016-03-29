@@ -318,11 +318,14 @@ def analyseDataSet(dataSetName):
     
    
 def normPower(X):
+    print X.shape
     return np.linalg.norm(X[:,6:9], None, 1) 
 def normRot(X):
     return np.linalg.norm(X[:,3:6], None, 1) 
 def normFused(X):
     return np.linalg.norm(X[:,0:3], None, 1) 
+
+
 
 
 def main():
