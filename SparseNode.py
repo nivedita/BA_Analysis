@@ -1,7 +1,8 @@
 import numpy as np
 
 from Oger.nodes.reservoir_nodes import LeakyReservoirNode
-from array import array
+from nltk.classify.scikitlearn import SklearnClassifier
+
 
 
 class SparseNode(LeakyReservoirNode):
@@ -13,15 +14,23 @@ class SparseNode(LeakyReservoirNode):
 		self.connectivity = 0.1
 		self.inputSignals = 'FGA'
 		self.useNormalized = 0
-		self.colStdFactor = [ 0.19532664, 0.07406439, 0.18426636, 2.57861928,1.19940363,2.51488647,6.37374965,4.49400088,5.75603514]
-		self.colMaxFactor = [3.07070231,0.62703943,3.12939386,19.78702,14.564295,20.696224,48.78246,46.557495,49.010956 ]
+		self.colStdFactor = np.array([ 0.19532664, 0.07406439, 0.18426636, 2.57861928,1.19940363,2.51488647,6.37374965,4.49400088,5.75603514])
+		self.colMaxFactor = np.array([3.07070231,0.62703943,3.12939386,19.78702,14.564295,20.696224,48.78246,46.557495,49.010956 ])
 	
 		print 'called'
 	
 	def updateInputScaling(self, dataStep):
 		input = np.concatenate([x[0] for x in dataStep],0)
-		self.colStdFactor = np.std(input,0)
-		self.colMaxFactor = np.max(np.abs(input),0)
+		self.colStdFactor[0:3] = np.std(np.linalg.norm(input[:,0:3], None, 1))
+		self.colStdFactor[3:6] = np.std(np.linalg.norm(input[:,3:6], None, 1))
+		self.colStdFactor[6:9] = np.std(np.linalg.norm(input[:,6:9], None, 1))
+
+		self.colMaxFactor[0:3] = np.max(np.linalg.norm(input[:,0:3], None, 1))
+		self.colMaxFactor[3:6] = np.max(np.linalg.norm(input[:,3:6], None, 1))
+		self.colMaxFactor[6:9] = np.max(np.linalg.norm(input[:,6:9], None, 1))
+		
+		#self.colStdFactor = np.std(input,0)
+		print  np.max(np.abs(input),0)
 		print 'Stds: ' + str(self.colStdFactor)
 		print 'max Vals: '+str(self.colMaxFactor)
 		

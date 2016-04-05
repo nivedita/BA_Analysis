@@ -203,7 +203,7 @@ def plot3dFused(signals,name):
     cmap = mpl.cm.Set1
     for k, sig in enumerate(signals):
         for j, fused1 in enumerate(sig.getAllSignals()):
-            fused1  = fused1[:,0:3]
+            fused1  = fused1[:,6:9]
             fusedInt1 = np.zeros(fused1.shape)
             for i in range(0,fused1.shape[0]):
                 fusedInt1[i] = np.sum(fused1[:i],0)
@@ -221,10 +221,10 @@ def plot3dFused(signals,name):
 def plotGesturesVs():
     pass
 #if __name__ == '__main__':
-    ds1 = createDataSetFromFile('julian_0_fullSet.npz')
-    ds1signals = ds1.getAllSignals(0,2)
-    ds2 = createDataSetFromFile('julian_1_fullSet.npz')
-    ds2signals = ds2.getAllSignals(1,2)
+    ds1 = createDataSetFromFile('nadja_7_fullSet.npz')
+    ds1signals = ds1.getAllSignals(7,2)
+    ds2 = createDataSetFromFile('julian_7_fullSet.npz')
+    ds2signals = ds2.getAllSignals(7,2)
     ds3 = createDataSetFromFile('julian_2_fullSet.npz')
     ds4 = createDataSetFromFile('julian_3_fullSet.npz')
     
@@ -241,6 +241,7 @@ def plotGesturesVs():
         label=['Gest. 2 X','Gest. 2 Y','Gest. 2 Z']
         cmap = mpl.cm.Blues
         subs[0].plot(ds2signals[8][:,i] ,label=label[i] ,color=cmap((i+0.5) / 3.0))
+    subs[0].set_title('Fused')
     
     for i in range(3,6):
         label=['Gest. 1 X','Gest. 1 Y','Gest. 1 Z']
@@ -250,6 +251,7 @@ def plotGesturesVs():
         label=['Gest. 2 X','Gest. 2 Y','Gest. 2 Z']
         cmap = mpl.cm.Blues
         subs[1].plot(ds2signals[8][:,i] ,label=label[i-3] ,color=cmap((i+1-3) / 3.0))
+    subs[1].set_title('Rotation')
     
     for i in range(6,9):
         label=['Gest. 1 X','Gest. 1 Y','Gest. 1 Z']
@@ -259,6 +261,7 @@ def plotGesturesVs():
         label=['Gest. 2 X','Gest. 2 Y','Gest. 2 Z']
         cmap = mpl.cm.Blues 
         subs[2].plot(ds2signals[8][:,i] ,label=label[i-6] ,color=cmap((i+1-6) / 3.0))
+    subs[2].set_title('Acceleration')
             
         
     subs[0].legend()
@@ -267,10 +270,10 @@ def plotGesturesVs():
 
 
     for name in ['stephan','julian','nadja','line','nike']:
-        ds1 = createDataSetFromFile(name+'_0_fullSet.npz')
-        ds2 = createDataSetFromFile(name+'_1_fullSet.npz')
-        ds3 = createDataSetFromFile(name+'_2_fullSet.npz')
-        ds4 = createDataSetFromFile(name+'_3_fullSet.npz')
+        ds1 = createDataSetFromFile(name+'_7_fullSet.npz')
+        ds2 = createDataSetFromFile(name+'_7_fullSet.npz')
+        ds3 = createDataSetFromFile(name+'_8_fullSet.npz')
+        ds4 = createDataSetFromFile(name+'_8_fullSet.npz')
         plot3dFused([ds1, ds2,ds3,ds4],name)
         
     for j, signal in enumerate(createDataSetFromFile('nike_3_fullSet.npz').getAllSignals()):
@@ -326,7 +329,19 @@ def normFused(X):
     return np.linalg.norm(X[:,0:3], None, 1) 
 
 
-
+def plotDSAgainst(nr):
+    plt.close('all')
+    nadja = createDataSetFromFile('nadja_'+str(nr)+'_fullSet.npz')
+    line = createDataSetFromFile('line_'+str(nr)+'_fullSet.npz')
+    stephan = createDataSetFromFile('stephan_'+str(nr)+'_fullSet.npz')
+    nike = createDataSetFromFile('nike_'+str(nr)+'_fullSet.npz')
+    julian = createDataSetFromFile('julian_'+str(nr)+'_fullSet.npz')
+    nadja.plot(2,False)
+    line.plot(2,False) #falsch
+    stephan.plot(2,False)
+    nike.plot(2,False)
+    julian.plot(2,False) #falsch
+    
 
 def main():
     pass

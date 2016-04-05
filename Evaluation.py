@@ -1,4 +1,5 @@
 import numpy as np
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import *
 from gettext import ngettext
@@ -6,6 +7,8 @@ from matplotlib.backends.backend_pdf import PdfPages
 from scipy.signal._peak_finding import argrelextrema
 import sklearn
 import sklearn.metrics
+from sklearn.metrics.ranking import roc_curve, auc
+from scipy import interp
 
 
 
@@ -118,24 +121,31 @@ def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Bl
 def createMaxTargetSignal(t_prediction, treshold):
     filterLength = 6
     t_max = np.zeros((t_prediction.shape[0],1))
-    t_prediction = np.append(t_prediction, np.ones((t_prediction.shape[0],1))*treshold, 1)
+    t_prediction = addTresholdSignal(t_prediction, treshold)
     for i in range(1,filterLength):
         t_max[i] = np.argmax(np.bincount(np.argmax(t_prediction[0:i,:], 1)))
     for i in range(filterLength,t_prediction.shape[0]):
         t_max[i] = np.argmax(np.bincount(np.argmax(t_prediction[i-filterLength:i,:], 1)))
     return t_max
     
+def addTresholdSignal(prediction, treshold):
+    return np.append(prediction, np.ones((prediction.shape[0],1))*treshold, 1)
+
+def addNoGestureSignal(target):
+    inds = np.max(target,1)==0
+    inds = np.atleast_2d(inds.astype('int')).T
+    return np.append(target, inds, 1)
     
 
 def calc1MinusConfusionFromMaxTargetSignal(input_signal,target_signal, vis=False):
     treshold = 0.4
     maxPred= createMaxTargetSignal(input_signal,treshold)
-    maxTarg= createMaxTargetSignal(target_signal, treshold)
+    maxTarg= createMaxTargetSignal(target_signal, 0.9)
     confMatrix = sklearn.metrics.confusion_matrix(maxTarg, maxPred,None)
     f1scores = sklearn.metrics.f1_score(maxTarg,maxPred,average=None)
-    print f1scores
+    #print f1scores
     f1score = np.mean(f1scores)
-
+    
     if vis:
         plt.figure()
         plt.plot(maxPred)
@@ -146,13 +156,14 @@ def calc1MinusConfusionFromMaxTargetSignal(input_signal,target_signal, vis=False
     #print f1score
     return 1-f1score
         
-def visCalcConfusionFromMaxTargetSignal(input_signal,target_signal):
-    treshold = 0.4
+def visCalcConfusionFromMaxTargetSignal(input_signal,target_signal, treshold=0.4):
     maxPred= createMaxTargetSignal(input_signal,treshold)
-    maxTarg= createMaxTargetSignal(target_signal, treshold)
+    maxTarg= createMaxTargetSignal(target_signal, np.max([0.001,treshold]))
     confMatrix = sklearn.metrics.confusion_matrix(maxTarg, maxPred,None)
     f1scores = sklearn.metrics.f1_score(maxTarg,maxPred,average=None)
     f1score = np.mean(f1scores)
+    report = sklearn.metrics.classification_report(maxTarg.astype('int'), maxPred.astype('int'))
+    #print report
     return confMatrix, f1scores, f1score
 
 
@@ -256,6 +267,72 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
             pp.savefig()
                 
     
+def showROC(prediction, target):
+    nGestures = target.shape[1]
+
+    n_classes = nGestures
+    y_test = target
+    y_score = prediction
+    # Compute ROC curve and ROC area for each class
+    fpr = dict()
+    tpr = dict()
+    roc_auc = dict()
+    for i in range(n_classes):
+        fpr[i], tpr[i], _ = roc_curve(y_test[:, i], y_score[:, i])
+        roc_auc[i] = auc(fpr[i], tpr[i])
+    
+    # Compute micro-average ROC curve and ROC area
+    fpr["micro"], tpr["micro"], _ = roc_curve(y_test.ravel(), y_score.ravel())
+    roc_auc["micro"] = auc(fpr["micro"], tpr["micro"])
+    
+    
+    
+    ##############################################################################
+    # Plot ROC curves for the multiclass problem
+    
+    # Compute macro-average ROC curve and ROC area
+    
+    # First aggregate all false positive rates
+    all_fpr = np.unique(np.concatenate([fpr[i] for i in range(n_classes)]))
+    
+    # Then interpolate all ROC curves at this points
+    mean_tpr = np.zeros_like(all_fpr)
+    for i in range(n_classes):
+        mean_tpr += interp(all_fpr, fpr[i], tpr[i])
+    
+    # Finally average it and compute AUC
+    mean_tpr /= n_classes
+    
+    fpr["macro"] = all_fpr
+    tpr["macro"] = mean_tpr
+    roc_auc["macro"] = auc(fpr["macro"], tpr["macro"])
+    
+    # Plot all ROC curves
+    plt.figure()
+    plt.plot(fpr["micro"], tpr["micro"],
+             label='micro-average ROC curve (area = {0:0.2f})'
+                   ''.format(roc_auc["micro"]),
+             linewidth=2)
+    
+    plt.plot(fpr["macro"], tpr["macro"],
+             label='macro-average ROC curve (area = {0:0.2f})'
+                   ''.format(roc_auc["macro"]),
+             linewidth=2)
+    
+    for i in range(n_classes):
+        plt.plot(fpr[i], tpr[i],label='ROC curve of class {0} (area = {1:0.2f})'
+                                       ''.format(i, roc_auc[i]))
+        
+
+    
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlim([0.0, 1.0])
+    plt.ylim([0.0, 1.05])
+    plt.xlabel('False Positive Rate')
+    plt.ylabel('True Positive Rate')
+    #plt.title('Some extension of Receiver operating characteristic to multi-class')
+    plt.legend(loc="lower right")
+    plt.show()
 
 def getMinima(errs, nr=-1):
     
@@ -268,5 +345,85 @@ def getMinima(errs, nr=-1):
     else:
         return indTable[nr,:]
     
-
     
+    
+def calcInputSegmentSeries(prediction, target, treshold, plot=False):
+    inds = [0]
+    prediction = addTresholdSignal(prediction, treshold)
+    target = addNoGestureSignal(target)
+    predictionInt = np.argmax(prediction, 1)
+    targetInt = np.argmax(target,1)
+    for i in range(1,len(predictionInt)):
+        if predictionInt[i-1] != predictionInt[i]:
+            inds.append(i)
+    inds.append(len(prediction)-1)
+    
+    if plot :
+        plt.figure()
+        cmap = mpl.cm.gist_earth
+        for i in range(prediction.shape[1]):
+            plt.plot(prediction[:,i],c=cmap(float(i)/(prediction.shape[1])))
+        
+        lastI = 0
+        for i in inds:
+            #plt.plot([i,i],[-2,2], c='black')
+            x = np.arange(lastI,i+1)
+            y1 = 0
+            y2 = prediction[x,predictionInt[lastI]]
+            #print predictionInt[i], prediction.shape[1], float(predictionInt[i]) / prediction.shape[1]
+            plt.fill_between(x, y1, y2, facecolor=cmap(float(predictionInt[lastI])/(prediction.shape[1])), alpha=0.5)
+            lastI = i
+        plt.plot(target)
+    
+    mapped = np.zeros(targetInt.shape)
+    
+    segmentPredicted = np.zeros((len(inds)-1,1))
+    segmentTarget = np.zeros((len(inds)-1,1))
+    mappedAway = 0
+    falsePositives = 0
+    for i in range(1,len(inds)):
+        start = inds[i-1]
+        end = inds[i]
+        targetSegment = targetInt[start:end]
+        predictedClass = predictionInt[start]
+        
+        segmentPredicted[i-1]=predictedClass
+        
+        print 'target and pred',targetSegment, predictedClass        
+        
+        #check for tp case
+        tpInds = np.add(np.where(targetSegment==predictedClass),start)
+        print tpInds, tpInds.size
+        if tpInds.size==0 : #predicted class not found in segment
+            print 'false positive',start,end
+            falsePositives += 1
+            segmentTarget[i-1]=np.argmax(np.bincount(targetSegment))
+        elif np.max(mapped[tpInds])!=0:   #predicted class found in segment but mapped away
+            print 'mapped away'
+            mappedAway += 1
+            segmentTarget[i-1]=prediction.shape[1]-1
+        else:
+            segmentTarget[i-1]=predictedClass            
+            print 'tp'
+            #wenn true positive gfunden wurde, entferne das target signal
+            j = start
+            while targetInt[j] == predictedClass: #wenn singal am anfang is muss man zurueck laufen
+                j = j-1
+            while targetInt[j] != predictedClass:
+                j = j+1
+            startDel = j
+            while j < len(targetInt) and targetInt[j] == predictedClass:
+                j = j+1
+            endDel = j
+            mapped[startDel:endDel] = 1 #this singal is mapped
+            print mapped
+        
+    print 'mapped away',mappedAway
+    print 'fale positive',falsePositives   
+           
+    ######################################################################
+    #######TODO handling wenn langes no gesture segment
+    ###################################################################### 
+
+    print np.array(zip(segmentPredicted,segmentTarget))
+        

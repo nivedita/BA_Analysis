@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -200,8 +200,8 @@ if __name__ == '__main__':
     name = input('name')
     normalized = False
     nmse = False
-    inputGestures = [0,1,2,3]
-    usedGestures = [0,1,2,3]
+    inputGestures = [0,1,2,3,4,5]
+    usedGestures = [0,1,2,3,4,5]
     
 
     plt.close('all')
@@ -221,7 +221,7 @@ if __name__ == '__main__':
     gestureNames.append('no gesture')
     
     
-    inputFiles = ['julian','nike','line','stephan']
+    inputFiles = ['nike','julian','line','stephan']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
     testFiles = ['nadja']
@@ -236,9 +236,13 @@ if __name__ == '__main__':
     dataStep = []
     
     for fileName in inputFiles:
-        dataStep.append(createData(fileName, inputGestures,usedGestures))
-    data = [dataStep,dataStep]
-
+        ind, t  = createData(fileName, inputGestures,usedGestures)
+    #    ind = np.concatenate([ind,ind,ind],0)
+    #    t = np.concatenate([t,t,t],0)
+    #    t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
+        dataStep.append((ind,t))
+        
+    data=[dataStep,dataStep]
 
     for iFile in randTestFiles:
         randTestSets.append(createDataSetFromFile(iFile))
@@ -267,24 +271,16 @@ if __name__ == '__main__':
     reservoir.updateInputScaling(dataStep)
     readoutnode = Oger.nodes.RidgeRegressionNode()
     flow = mdp.Flow( [reservoir,readoutnode])
-
+    
+    
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
-                                        'useNormalized':[1], \
-                                        'leak_rate':[1,0.2], \
-                                        'spectral_radius':mdp.numx.arange(0.99, 1.0, 0.1), \
+                                        'useNormalized':[2], \
+                                        'leak_rate':[0.3], \
+                                        'spectral_radius':[0.99], \
                                         'output_dim':[800], \
-                                        'input_scaling':mdp.numx.arange(1, 1.8, 0.5), \
-                                        '_instance':range(3)}, \
-                             readoutnode:{'ridge_param':[0.01]}}
-    gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA'], \
-                                        'useNormalized':[1], \
-                                        'leak_rate':[1,0.1,0.01], \
-                                        'spectral_radius':mdp.numx.arange(0.1, 1.1, 0.89), \
-                                        'output_dim':[100], \
-                                         'input_scaling':mdp.numx.arange(0.2, 2, 0.6), \
-                                        '_instance':range(3)}, \
+                                         'input_scaling':[4], \
+                                        '_instance':range(1)}, \
                              readoutnode:{'ridge_param':[0.0001]}} 
     
     if nmse:
@@ -292,7 +288,7 @@ if __name__ == '__main__':
     else:
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusConfusionFromMaxTargetSignal)    
-        
+        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
         
     opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
@@ -352,12 +348,18 @@ if __name__ == '__main__':
     plt.title('Prediction on training')  
     i = 0 
     trainCms = []
+    trainPredicitions = []
+    trainTargets = []
     for row in axes:
         prediction = bestFlow([data[0][i][0]])
+        t_target = data[0][i][1]
+        visCalcConfusionFromMaxTargetSignal(prediction, t_target)
         row.set_title(inputFiles[i])
         row.plot(prediction)
         row.plot(numpy.atleast_2d(data[0][i][1]))
         trainCms.append(calcConfusionMatrix(prediction, data[0][i][1])[0])
+        trainPredicitions.append(prediction)
+        trainTargets.append(t_target)
         i = i+1
     #plt.plot(data[0][0][0])
     pp.savefig()
@@ -407,17 +409,28 @@ if __name__ == '__main__':
         testData = createData(iFile, inputGestures, usedGestures)
         t_prediction = bestFlow(testData[0])
         t_target = testData[1]
-        fig = plt.figure(figsize=(20,20))
+        fig = plt.figure(figsize=(30,30))
         fig.suptitle(iFile)
         plt.clf()
-        plt.subplot(211)
+        ax1 = plt.subplot(211)
         plt.title('Prediction on test ' +iFile)
         plt.plot(t_prediction)
         plt.plot(testData[1])
-        plt.subplot(212)
-        plt.title('Smoothed prediction')
-        plt.plot(runningAverage(t_prediction, 10))
+        plt.subplot(212, sharex=ax1)
+        plt.title('Input')
+        if(bestFlow[0].useNormalized==1):
+            plt.plot(testData[0][:,0:3]/reservoir.colStdFactor[0:3],label='Fused')
+            plt.plot(testData[0][:,3:6]/reservoir.colStdFactor[3:6],label='Rot')
+            plt.plot(testData[0][:,6:9]/reservoir.colStdFactor[6:9],label='Acc')
+        elif (bestFlow[0].useNormalized==2):
+            plt.plot(testData[0][:,0:3]/reservoir.colMaxFactor[0:3],label='Fused')
+            plt.plot(testData[0][:,3:6]/reservoir.colMaxFactor[3:6],label='Rot')
+            plt.plot(testData[0][:,6:9]/reservoir.colMaxFactor[6:9],label='Acc')
+        plt.plot(np.sum(np.abs(bestFlow[0].states),1)/100,label='Res Eenergy /100')
+        
+        
         plt.plot(testData[1])
+        plt.legend()
         pp.savefig()
     
         cm, missClassified = calcConfusionMatrix(t_prediction, testData[1])

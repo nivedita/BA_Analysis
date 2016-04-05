@@ -8,13 +8,13 @@ from Main import *
 
 class DataSet(object):
     
-    fused = np.empty((0,0))
-    gyro = np.empty((0,0))
-    acc  = np.empty((0,0))
-    targets = np.empty((0,0))
-    means = np.empty((0,0))
-    stds = np.empty((0,0))
-    gestures = np.empty((0,0))
+    #fused = np.empty((0,0))
+    #gyro = np.empty((0,0))
+    #acc  = np.empty((0,0))
+    #targets = np.empty((0,0))
+    #means = np.empty((0,0))
+    #stds = np.empty((0,0))
+    #gestures = np.empty((0,0))
     
     
     def __init__(self, fused, gyro, acc, targets,means, stds, gestures):
@@ -91,10 +91,23 @@ class DataSet(object):
         inputData = np.append(inputData, self.acc, 1)
         stds = np.append(stds,self.stds[6:9],0)
         
+        i = 0
+        target = np.copy(self.targets)
+        #while i < len(self.targets):
+        #    tLen = 0
+        #    while i < len(self.targets) and self.targets[i,2] == 1:
+        #        tLen = tLen + 1
+        #        i = i+1
+        #    if tLen != 0:
+        #        dropArea = tLen/2
+        #        #target[i-dropArea:i,2]=0
+        #        target[i-tLen:i-dropArea,2]=0
+        #    i = i+1   
+        
         readOutTrainingData = np.zeros((len(inputData),len(classNrs)))
         i = 0
         for classNr in classNrs:
-            readOutTrainingData[:,i] = self.targets[:,targetNr].T * self.gestures[classNr]
+            readOutTrainingData[:,i] = target[:,targetNr].T * self.gestures[classNr]
             i = i+1
         if normalized:
             inputData = inputData/stds
