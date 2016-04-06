@@ -333,7 +333,69 @@ def showROC(prediction, target):
     #plt.title('Some extension of Receiver operating characteristic to multi-class')
     plt.legend(loc="lower right")
     plt.show()
+    
+    
+def calcTPRFromConfMatr(conf, classNr):
+    return float(conf[classNr,classNr])/(np.sum(conf[classNr,:]))
 
+def calcFPRFromConfMatr(conf, classNr):
+    fp = (np.sum(conf[:,classNr])-conf[classNr,classNr])
+    tn = np.sum(conf)-np.sum(conf[classNr,:])-np.sum(conf[:,classNr])+conf[classNr,classNr]
+    return float(fp)/(fp+tn)
+
+
+def calcTPFPForThresholds(prediction, target, title=''):
+    maxTreshold = 1.5
+    stepsize = 0.01
+    tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
+    fprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
+    f1score = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
+    for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):
+        pred, targ= calcInputSegmentSeries(prediction, target, i, False)
+        conf = sklearn.metrics.confusion_matrix(targ,pred)
+        for classNr in range(prediction.shape[1]+1):
+            tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)
+            fprs[ind,classNr] = calcFPRFromConfMatr(conf, classNr)
+        f1score[ind] = sklearn.metrics.f1_score(targ, pred, average=None)
+    
+    matplotlib.rcParams.update({'font.size': 20})
+    
+    fig, axes = plt.subplots(3, 1, True, figsize=(20,20))
+    fig.tight_layout(h_pad=2)
+    fig.suptitle(title)
+    axes[0].set_title('True positive rate')
+    axes[0].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[0].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[0].set_xlabel('Treshold')
+    for i in range(prediction.shape[1]):
+        axes[0].plot(tprs[:,i], label='Class '+str(i))
+    axes[0].plot(tprs[:,prediction.shape[1]], label='No gesture')
+    axes[0].set_ylim(-0.05,1.05)        
+    axes[0].legend()
+    
+    axes[1].set_title('False positive rate')
+    axes[1].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[1].set_xlabel('Treshold')
+    for i in range(prediction.shape[1]):
+        axes[1].plot(fprs[:,i], label='Class '+str(i))
+    axes[1].plot(fprs[:,prediction.shape[1]], label='No gesture')
+    axes[1].set_ylim(-0.05,1.05)        
+    axes[1].legend()
+    
+    axes[2].set_title('F1Score')
+    axes[2].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[2].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[2].set_xlabel('Treshold')
+    for i in range(prediction.shape[1]):
+        axes[2].plot(f1score[:,i], label='Class '+str(i))
+    axes[2].plot(f1score[:,prediction.shape[1]], label='No gesture')
+    axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
+    
+    axes[2].set_ylim(-0.05,1.05)        
+    axes[2].legend()
+    
+    
 def getMinima(errs, nr=-1):
     
     inds = argrelextrema(errs, np.less,order=1, mode='wrap')
@@ -377,53 +439,143 @@ def calcInputSegmentSeries(prediction, target, treshold, plot=False):
     
     mapped = np.zeros(targetInt.shape)
     
-    segmentPredicted = np.zeros((len(inds)-1,1))
-    segmentTarget = np.zeros((len(inds)-1,1))
-    mappedAway = 0
-    falsePositives = 0
-    for i in range(1,len(inds)):
+
+    segmentPredicted = []
+    segmentTarget = []
+    #mappedAway = 0
+    #falsePositives = 0
+    for i in range(1,len(inds)): ###suche nach tp
         start = inds[i-1]
         end = inds[i]
         targetSegment = targetInt[start:end]
         predictedClass = predictionInt[start]
+        if predictedClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
+            #check for tp case
+            tpInds = np.add(np.where(targetSegment==predictedClass),start)
+            #print tpInds, tpInds.size
+            if not tpInds.size==0 and not np.max(mapped[tpInds])!=0: #segemnt wurde noch nicht gemappet
+                segmentPredicted.append(predictedClass)
+                segmentTarget.append(predictedClass)  
+                if plot:    
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='blue')       
+                #wenn true positive gfunden wurde, mappe das target signal
+                mapSegment(mapped, targetInt, predictedClass, start)
+            elif not tpInds.size==0 and np.max(mapped[tpInds])!=0: #segment wurde bereits gemappt
+                segmentPredicted.append(predictedClass)
+                segmentTarget.append(prediction.shape[1]-1) 
+                if plot: 
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='red')
         
-        segmentPredicted[i-1]=predictedClass
-        
-        print 'target and pred',targetSegment, predictedClass        
-        
+            
+
+            
+    if plot:           
+        plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
+    
+
+            
+                     
+    for i in range(1,len(inds)): #segment ist wrong gesture
+        start = inds[i-1]
+        end = inds[i]
+        targetSegment = targetInt[start:end]
+        predictedClass = predictionInt[start]
         #check for tp case
         tpInds = np.add(np.where(targetSegment==predictedClass),start)
-        print tpInds, tpInds.size
-        if tpInds.size==0 : #predicted class not found in segment
-            print 'false positive',start,end
-            falsePositives += 1
-            segmentTarget[i-1]=np.argmax(np.bincount(targetSegment))
-        elif np.max(mapped[tpInds])!=0:   #predicted class found in segment but mapped away
-            print 'mapped away'
-            mappedAway += 1
-            segmentTarget[i-1]=prediction.shape[1]-1
-        else:
-            segmentTarget[i-1]=predictedClass            
-            print 'tp'
-            #wenn true positive gfunden wurde, entferne das target signal
-            j = start
-            while targetInt[j] == predictedClass: #wenn singal am anfang is muss man zurueck laufen
-                j = j-1
-            while targetInt[j] != predictedClass:
-                j = j+1
-            startDel = j
-            while j < len(targetInt) and targetInt[j] == predictedClass:
-                j = j+1
-            endDel = j
-            mapped[startDel:endDel] = 1 #this singal is mapped
-            print mapped
+        if predictedClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
+            if tpInds.size==0: 
+                bins = np.bincount(targetSegment,None,prediction.shape[1])
+                ################################################################
+                #uncomment this to allow each target to be classified only once
+                #if np.any(bins[:-1]) and np.max(mapped[start:end]) == 0: 
+                ################################################################
+                if np.any(bins[:-1]): #eine andere geste findet statt 
+                    trueClass = np.argmax(bins[:-1])
+                    mapSegment(mapped, targetInt, trueClass, start)
+                else:
+                    trueClass= prediction.shape[1]-1
+                    
+                segmentPredicted.append(predictedClass)
+                segmentTarget.append(trueClass) 
+                
+                if plot: 
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='green')
+                    plt.annotate(str(predictedClass)+'/'+str(trueClass), xy=(start,0))
+                #print targetSegment, bins, predictedClass, trueClass 
+                
+
+    
+    
+    # search for target signals that have not been mapped
+    targetInds=[]
+    targetInds.append(0)
+    for i in range(1,len(targetInt)):
+        if targetInt[i-1] != targetInt[i]:
+            targetInds.append(i)
+    targetInds.append(len(prediction)-1)
+    
+    for i in range(1,len(targetInds)):
+        start = targetInds[i-1]
+        end = targetInds[i]
+        targetSegment = targetInt[start:end]
+        predictedClass = prediction.shape[1]-1
+        trueClass = targetInt[start]
         
-    print 'mapped away',mappedAway
-    print 'fale positive',falsePositives   
+        if trueClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
+            if mapped[start]==0:
+                #print 'trueClass ',trueClass, ' pred ',predictedClass
+            
+                segmentPredicted.append(predictedClass)
+                segmentTarget.append(trueClass) 
+                mapSegment(mapped, targetInt, trueClass, start)
+                if plot: 
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='yellow')
+        else:
+            segmentPredicted.append(prediction.shape[1]-1)
+            segmentTarget.append(prediction.shape[1]-1)
+    #if plot:           
+        #plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
+    
+    
+    #print 'mapped away',mappedAway
+    #print 'fale positive',falsePositives   
            
     ######################################################################
     #######TODO handling wenn langes no gesture segment
     ###################################################################### 
 
-    print np.array(zip(segmentPredicted,segmentTarget))
+    #print np.array(zip(segmentPredicted,segmentTarget))
+    pred = np.array(segmentPredicted)
+    targ = np.array(segmentTarget)
+    return pred, targ
+    
+    
+def calc1MinusF1FromInputSegment(prediction, target, treshold=0.4):
+    pred, targ = calcInputSegmentSeries(prediction, target, treshold, False)
+    conf = sklearn.metrics.confusion_matrix(targ, pred)
+    f1 =  np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
+    print conf
+    print sklearn.metrics.f1_score(targ,pred,average=None)
+    print np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
+    calcTPFPForThresholds(prediction, target)
+    return 1-f1
+
+def normalize_confusion_maxtrix(confus):
+    conf = np.copy(confus).astype('float')
+    for i in range(len(conf)-1):
+        conf[i,:] = conf[i,:] / float(np.sum(conf[i,:]))
+    conf[len(conf)-1,:]  = conf[len(conf)-1,:] / float(np.sum(conf[len(conf)-1,:])*(len(conf)-1))
+    return conf
+       
         
+def mapSegment(mapped, targetInt, predictedClass, ind):
+    j = ind
+    while targetInt[j] == predictedClass: #wenn singal am anfang is muss man zurueck laufen
+        j = j-1
+    while targetInt[j] != predictedClass:
+        j = j+1
+    startDel = j
+    while j < len(targetInt) and targetInt[j] == predictedClass:
+        j = j+1
+    endDel = j
+    mapped[startDel:endDel] = 1 

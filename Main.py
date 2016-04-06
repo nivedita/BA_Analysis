@@ -28,8 +28,8 @@ from SparseNode import SparseNode
 
 
 def getProjectPath():
-    #projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
+    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
+    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
     return projectPath
 
 def transformToDelta(vals):
@@ -203,6 +203,7 @@ if __name__ == '__main__':
     inputGestures = [0,1,2,3,4,5]
     usedGestures = [0,1,2,3,4,5]
     
+    plt.switch_backend('Qt4Agg')
 
     plt.close('all')
     now = datetime.datetime.now()
@@ -221,10 +222,10 @@ if __name__ == '__main__':
     gestureNames.append('no gesture')
     
     
-    inputFiles = ['nike','julian','line','stephan']
+    inputFiles = ['nike','julian','line','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['nadja']
+    testFiles = ['stephan']
     #randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     randTestFiles = []
     
@@ -237,8 +238,11 @@ if __name__ == '__main__':
     
     for fileName in inputFiles:
         ind, t  = createData(fileName, inputGestures,usedGestures)
+    ## stretch testset
     #    ind = np.concatenate([ind,ind,ind],0)
     #    t = np.concatenate([t,t,t],0)
+    
+    ## no gesture as single class
     #    t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
         dataStep.append((ind,t))
         
@@ -281,19 +285,19 @@ if __name__ == '__main__':
                                         'output_dim':[800], \
                                          'input_scaling':[4], \
                                         '_instance':range(1)}, \
-                             readoutnode:{'ridge_param':[0.0001]}} 
+                             readoutnode:{'ridge_param':[2]}} 
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     else:
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusConfusionFromMaxTargetSignal)    
-        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
+        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
         
-    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
+    #opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
-    mdp.activate_extension("parallel")
-    opt.grid_search(data, flow, n_folds=3, cross_validate_function=Oger.evaluation.n_fold_random)
+    #mdp.activate_extension("parallel")
+    opt.grid_search(data, flow, n_folds=4, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
     
@@ -353,11 +357,13 @@ if __name__ == '__main__':
     for row in axes:
         prediction = bestFlow([data[0][i][0]])
         t_target = data[0][i][1]
-        visCalcConfusionFromMaxTargetSignal(prediction, t_target)
+        #visCalcConfusionFromMaxTargetSignal(prediction, t_target)
         row.set_title(inputFiles[i])
         row.plot(prediction)
         row.plot(numpy.atleast_2d(data[0][i][1]))
-        trainCms.append(calcConfusionMatrix(prediction, data[0][i][1])[0])
+        pred, targ = calcInputSegmentSeries(prediction, t_target, 0.4, False)
+        conf = sklearn.metrics.confusion_matrix(targ, pred)
+        trainCms.append(conf)
         trainPredicitions.append(prediction)
         trainTargets.append(t_target)
         i = i+1
@@ -379,6 +385,7 @@ if __name__ == '__main__':
     confMatrices = []
     missClassifiedGestures = []
     f1Scores = []
+    f1ScoreNames = []
     for set, setName in zip(randTestSets,randTestFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
         t_prediction = bestFlow([set.getDataForTraining(usedGestures, 2)[0]])
@@ -396,11 +403,12 @@ if __name__ == '__main__':
         plt.plot(set.getDataForTraining(usedGestures,2)[1])
         pp.savefig()
         print setName
-        cm, missClassified = calcConfusionMatrix(t_prediction, set.getDataForTraining(usedGestures,2)[1])
+        pred, targ = calcInputSegmentSeries(t_prediction, t_target, 0.4, False)
+        cm = sklearn.metrics.confusion_matrix(targ, pred)
         f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
         confMatrices.append(cm)
-        missClassifiedGestures.append(missClassified)
         f1Scores.append(f1)
+        f1ScoreNames.append(setName)
         plot_confusion_matrix(cm,gestureNames,setName + ' - full gesture ranking')
         pp.savefig()
 
@@ -433,17 +441,20 @@ if __name__ == '__main__':
         plt.legend()
         pp.savefig()
     
-        cm, missClassified = calcConfusionMatrix(t_prediction, testData[1])
-        f1,_ = calcF1ScoreFromConfusionMatrix(cm,True)
+        pred, targ = calcInputSegmentSeries(t_prediction, t_target, 0.4, False)
+        cm = sklearn.metrics.confusion_matrix(targ, pred)
+        print cm
+        f1 = np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
        
-        missClassifiedGestures.append(missClassified)
+
         plot_confusion_matrix(cm,gestureNames,iFile + ' - full gesture ranking')
         pp.savefig()
-        cm, _, f1 = visCalcConfusionFromMaxTargetSignal(t_prediction, t_target)
+        #cm, _, f1 = visCalcConfusionFromMaxTargetSignal(t_prediction, t_target)
         plot_confusion_matrix(cm,gestureNames,iFile)
         pp.savefig()
         
         f1Scores.append(f1)
+        f1ScoreNames.append(iFile)
         confMatrices.append(cm)
     
     
@@ -453,11 +464,21 @@ if __name__ == '__main__':
     plot_confusion_matrix(totalCm,gestureNames,'total test confusion')    
     pp.savefig()
     visCM = np.copy(totalCm)
-    visCM[-1,-1]=0
     plot_confusion_matrix(visCM,gestureNames,'total test confusion')    
     pp.savefig()
     
     
+    
+    totalTrainInputData = [x[0] for x in dataStep]
+    totalTrainTargetData = [x[1] for x in dataStep]
+    totalTrainInputData = np.concatenate(totalTrainInputData,0)
+    totalTrainTargetData = np.concatenate(totalTrainTargetData,0)
+    totalTrainPrediction = bestFlow(totalTrainInputData)
+    calcTPFPForThresholds(totalTrainPrediction, totalTrainTargetData)
+    pp.savefig()
+    
+    calcTPFPForThresholds(t_prediction, t_target)
+    pp.savefig()
    
     pp.close();  
     #plt.close('all')
@@ -529,14 +550,15 @@ if __name__ == '__main__':
                  confMatrices=confMatrices, \
                  testFileList=randTestFiles,\
                  f1Scores=f1Scores,\
+                 f1ScoreNames=f1ScoreNames,\
                  bestRes_w_in=bestFlow[0].w_in, \
                  bestRes_w=bestFlow[0].w, \
                  )
         bestFlow.save(bestFlowPath)
         
 
-    print 'f1test:' + str(f1Scores)
-    
+    print 'f1test:' + str(zip(f1ScoreNames,f1Scores))
+
     
     
     #return bestFlow, opt

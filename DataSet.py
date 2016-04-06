@@ -93,16 +93,16 @@ class DataSet(object):
         
         i = 0
         target = np.copy(self.targets)
-        #while i < len(self.targets):
-        #    tLen = 0
-        #    while i < len(self.targets) and self.targets[i,2] == 1:
-        #        tLen = tLen + 1
-        #        i = i+1
-        #    if tLen != 0:
-        #        dropArea = tLen/2
-        #        #target[i-dropArea:i,2]=0
-        #        target[i-tLen:i-dropArea,2]=0
-        #    i = i+1   
+        while i < len(self.targets):
+            tLen = 0
+            while i < len(self.targets) and self.targets[i,2] == 1:
+                tLen = tLen + 1
+                i = i+1
+            if tLen != 0:
+                dropArea = tLen/2
+                #target[i-dropArea:i,2]=0
+                target[i-tLen:i-dropArea,2]=0
+            i = i+1   
         
         readOutTrainingData = np.zeros((len(inputData),len(classNrs)))
         i = 0
