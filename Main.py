@@ -202,6 +202,8 @@ if __name__ == '__main__':
     nmse = False
     inputGestures = [0,1,2,3,4,5]
     usedGestures = [0,1,2,3,4,5]
+    concFactor = 3
+    noiseFactor = 0
     
     plt.switch_backend('Qt4Agg')
 
@@ -239,8 +241,19 @@ if __name__ == '__main__':
     for fileName in inputFiles:
         ind, t  = createData(fileName, inputGestures,usedGestures)
     ## stretch testset
-    #    ind = np.concatenate([ind,ind,ind],0)
-    #    t = np.concatenate([t,t,t],0)
+        indSets = []
+        tSets = []
+        for concer in range(concFactor):
+            indSets.append(ind)
+            tSets.append(t)
+        ind = np.concatenate(indSets,0)
+        t = np.concatenate(tSets,0)
+        if noiseFactor > 0:
+            for i in ind:
+                i[0:3] = i[0:3]+np.random.normal(0,0.05 *noiseFactor)
+                i[3:6] = i[3:6]+np.random.normal(0,0.5 * noiseFactor)
+                i[6:9] = i[6:9]+np.random.normal(0,1.25 * noiseFactor)
+                
     
     ## no gesture as single class
     #    t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
@@ -282,7 +295,7 @@ if __name__ == '__main__':
                                         'useNormalized':[2], \
                                         'leak_rate':[0.3], \
                                         'spectral_radius':[0.99], \
-                                        'output_dim':[800], \
+                                        'output_dim':[400], \
                                          'input_scaling':[4], \
                                         '_instance':range(1)}, \
                              readoutnode:{'ridge_param':[2]}} 
@@ -493,9 +506,11 @@ if __name__ == '__main__':
               'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
     
 
+    result.extend(['inputGestures',inputGestures])
     result.extend(['usedGestures',usedGestures])
-        
-      
+    result.extend(['stretchFactor',concFactor])
+    result.extend(['noiseFactor',noiseFactor])
+    
       
     minErrDict = opt.get_minimal_error()[1]
     sparseDict = minErrDict.get(reservoir)

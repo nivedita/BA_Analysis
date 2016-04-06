@@ -17,7 +17,6 @@ class SparseNode(LeakyReservoirNode):
 		self.colStdFactor = np.array([ 0.19532664, 0.07406439, 0.18426636, 2.57861928,1.19940363,2.51488647,6.37374965,4.49400088,5.75603514])
 		self.colMaxFactor = np.array([3.07070231,0.62703943,3.12939386,19.78702,14.564295,20.696224,48.78246,46.557495,49.010956 ])
 	
-		print 'called'
 	
 	def updateInputScaling(self, dataStep):
 		input = np.concatenate([x[0] for x in dataStep],0)
@@ -30,7 +29,6 @@ class SparseNode(LeakyReservoirNode):
 		self.colMaxFactor[6:9] = np.max(np.linalg.norm(input[:,6:9], None, 1))
 		
 		#self.colStdFactor = np.std(input,0)
-		print  np.max(np.abs(input),0)
 		print 'Stds: ' + str(self.colStdFactor)
 		print 'max Vals: '+str(self.colMaxFactor)
 		
