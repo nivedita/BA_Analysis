@@ -294,9 +294,9 @@ if __name__ == '__main__':
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
         
-    #opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
+    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
-    #mdp.activate_extension("parallel")
+    mdp.activate_extension("parallel")
     opt.grid_search(data, flow, n_folds=4, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
@@ -434,7 +434,7 @@ if __name__ == '__main__':
             plt.plot(testData[0][:,0:3]/reservoir.colMaxFactor[0:3],label='Fused')
             plt.plot(testData[0][:,3:6]/reservoir.colMaxFactor[3:6],label='Rot')
             plt.plot(testData[0][:,6:9]/reservoir.colMaxFactor[6:9],label='Acc')
-        plt.plot(np.sum(np.abs(bestFlow[0].states),1)/100,label='Res Eenergy /100')
+        plt.plot(np.sum(np.abs(bestFlow[0].states),1)/100,label='Res Energy /100')
         
         
         plt.plot(testData[1])
@@ -543,6 +543,7 @@ if __name__ == '__main__':
     
     result.append('=HYPERLINK(\"'+pdfFilePath+'\")')
     result.append('=HYPERLINK(\"'+npzFilePath+'\")')
+    result.append('=HYPERLINK(\"'+bestFlowPath+'\")')
     
     if name != 'test':
         writeToReportFile(result)

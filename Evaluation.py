@@ -94,7 +94,7 @@ def calcF1OverFloatingAverage(input_signal,target_signal):
     return calc1MinusF1Average(calcFloatingAverage(input_signal, target_signal),target_signal)
 
 def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
-    plt.figure()
+    plt.figure(figsize=(15,15))
     plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     plt.colorbar()
