@@ -1,7 +1,6 @@
 import numpy as np
 
 from Oger.nodes.reservoir_nodes import LeakyReservoirNode
-from nltk.classify.scikitlearn import SklearnClassifier
 
 
 

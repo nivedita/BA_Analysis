@@ -26,7 +26,6 @@ from DataAnalysis import subPlot
 from SparseNode import SparseNode
 
 
-
 def getProjectPath():
     projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
     #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
@@ -200,9 +199,9 @@ if __name__ == '__main__':
     name = input('name')
     normalized = False
     nmse = False
-    inputGestures = [0,1,2,3,4,5]
-    usedGestures = [0,1,2,3,4,5]
-    concFactor = 3
+    inputGestures = [0,1,2,3,4,5,6,7,8,9]
+    usedGestures = [0,1,2,3,4,5,6,7,8,9]
+    concFactor = 1
     noiseFactor = 0
     
     plt.switch_backend('Qt4Agg')
@@ -224,10 +223,10 @@ if __name__ == '__main__':
     gestureNames.append('no gesture')
     
     
-    inputFiles = ['nike','julian','line','nadja']
+    inputFiles = ['stephan','julian','nike','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['stephan']
+    testFiles = ['line']
     #randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     randTestFiles = []
     
@@ -295,17 +294,19 @@ if __name__ == '__main__':
                                         'useNormalized':[2], \
                                         'leak_rate':[0.3], \
                                         'spectral_radius':[0.99], \
-                                        'output_dim':[400], \
+                                        'output_dim':[40], \
                                          'input_scaling':[4], \
-                                        '_instance':range(1)}, \
+                                        '_instance':range(2)}, \
                              readoutnode:{'ridge_param':[2]}} 
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     else:
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
-        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
+        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calcLevenshteinError)    
+        
         
     opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
@@ -390,6 +391,13 @@ if __name__ == '__main__':
         pp.savefig()
    
    
+    totalTrainInputData = [x[0] for x in dataStep]
+    totalTrainTargetData = [x[1] for x in dataStep]
+    totalTrainInputData = np.concatenate(totalTrainInputData,0)
+    totalTrainTargetData = np.concatenate(totalTrainTargetData,0)
+    totalTrainPrediction = bestFlow(totalTrainInputData)
+    tresholds= calcTPFPForThresholds(totalTrainPrediction, totalTrainTargetData, 'Train Data')
+    pp.savefig()
    
     #---------------------------------------------------------------------------------------------------#
     #----------------------------------------------TESTING----------------------------------------------#
@@ -398,7 +406,10 @@ if __name__ == '__main__':
     confMatrices = []
     missClassifiedGestures = []
     f1Scores = []
+    f1ppScores = []
     f1ScoreNames = []
+    levs = []
+    levs_pp = []
     for set, setName in zip(randTestSets,randTestFiles):
         #set = DataSet.appendDataSets(set,DataSet.createDataSetFromFile('stephan_1_0.npz'))
         t_prediction = bestFlow([set.getDataForTraining(usedGestures, 2)[0]])
@@ -422,6 +433,7 @@ if __name__ == '__main__':
         confMatrices.append(cm)
         f1Scores.append(f1)
         f1ScoreNames.append(setName)
+        f1ppScores.append(-1)
         plot_confusion_matrix(cm,gestureNames,setName + ' - full gesture ranking')
         pp.savefig()
 
@@ -429,6 +441,16 @@ if __name__ == '__main__':
     for iFile in testFiles:
         testData = createData(iFile, inputGestures, usedGestures)
         t_prediction = bestFlow(testData[0])
+        t_pp_prediction = postProcessPrediction(t_prediction, tresholds)
+
+        calcTPFPForThresholds(t_prediction, t_target)
+        pp.savefig()
+        
+        lev = calcLevenshteinError(t_prediction, t_target, 0.4)
+        lev_pp = calcLevenshteinError(t_pp_prediction, t_target, 0.05)
+        levs.append(lev)
+        levs_pp.append(lev_pp)
+        print
         t_target = testData[1]
         fig = plt.figure(figsize=(30,30))
         fig.suptitle(iFile)
@@ -455,21 +477,20 @@ if __name__ == '__main__':
         pp.savefig()
     
         pred, targ = calcInputSegmentSeries(t_prediction, t_target, 0.4, False)
+        pp_pred, pp_targ = calcInputSegmentSeries(t_pp_prediction, t_target, 0.05, False)
+        
         cm = sklearn.metrics.confusion_matrix(targ, pred)
-        print cm
-        f1 = np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
-       
-
-        plot_confusion_matrix(cm,gestureNames,iFile + ' - full gesture ranking')
-        pp.savefig()
-        #cm, _, f1 = visCalcConfusionFromMaxTargetSignal(t_prediction, t_target)
+        confMatrices.append(cm)
         plot_confusion_matrix(cm,gestureNames,iFile)
         pp.savefig()
         
+        f1 = np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
+        f1_pp = np.mean(sklearn.metrics.f1_score(pp_targ,pp_pred,average=None))
+        
         f1Scores.append(f1)
+        f1ppScores.append(f1_pp)
         f1ScoreNames.append(iFile)
-        confMatrices.append(cm)
-    
+        
     
     totalCm = confMatrices[0]
     for cm in confMatrices[1:]:
@@ -482,17 +503,8 @@ if __name__ == '__main__':
     
     
     
-    totalTrainInputData = [x[0] for x in dataStep]
-    totalTrainTargetData = [x[1] for x in dataStep]
-    totalTrainInputData = np.concatenate(totalTrainInputData,0)
-    totalTrainTargetData = np.concatenate(totalTrainTargetData,0)
-    totalTrainPrediction = bestFlow(totalTrainInputData)
-    calcTPFPForThresholds(totalTrainPrediction, totalTrainTargetData)
-    pp.savefig()
+
     
-    calcTPFPForThresholds(t_prediction, t_target)
-    pp.savefig()
-   
     pp.close();  
     #plt.close('all')
     
@@ -502,8 +514,9 @@ if __name__ == '__main__':
     #---------------------------------------------------------------------------------------------------#  
 
     inFiles = inputFiles
-    result = [str(now),name,inputFiles,randTestFiles,opt.loss_function, \
-              'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores)]
+    result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
+              'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores), 'meanPPF1Score',np.mean(f1ppScores),\
+              'Levenshtein',levs,'Levenshtein_pp',levs_pp]
     
 
     result.extend(['inputGestures',inputGestures])
@@ -575,7 +588,8 @@ if __name__ == '__main__':
 
     print 'f1test:' + str(zip(f1ScoreNames,f1Scores))
 
-    
+    print 'pp_success:', (f1_pp-f1)
+    print 'lev', lev, ' lev pp ', lev_pp, ':', (lev-lev_pp)
     
     #return bestFlow, opt
     

@@ -9,6 +9,7 @@ import sklearn
 import sklearn.metrics
 from sklearn.metrics.ranking import roc_curve, auc
 from scipy import interp
+import Levenshtein
 
 
 
@@ -344,7 +345,7 @@ def calcFPRFromConfMatr(conf, classNr):
     return float(fp)/(fp+tn)
 
 
-def calcTPFPForThresholds(prediction, target, title=''):
+def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     maxTreshold = 1.5
     stepsize = 0.01
     tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
@@ -360,16 +361,17 @@ def calcTPFPForThresholds(prediction, target, title=''):
     
     matplotlib.rcParams.update({'font.size': 20})
     
-    fig, axes = plt.subplots(3, 1, True, figsize=(20,20))
+    fig, axes = plt.subplots(4, 1, True, figsize=(20,20))
     fig.tight_layout(h_pad=2)
     fig.suptitle(title)
     axes[0].set_title('True positive rate')
     axes[0].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[0].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[0].set_xlabel('Treshold')
+    cmap = mpl.cm.Set1
     for i in range(prediction.shape[1]):
-        axes[0].plot(tprs[:,i], label='Class '+str(i))
-    axes[0].plot(tprs[:,prediction.shape[1]], label='No gesture')
+        axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label='Class '+str(i))
+    axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture')
     axes[0].set_ylim(-0.05,1.05)        
     axes[0].legend()
     
@@ -378,8 +380,8 @@ def calcTPFPForThresholds(prediction, target, title=''):
     axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[1].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
-        axes[1].plot(fprs[:,i], label='Class '+str(i))
-    axes[1].plot(fprs[:,prediction.shape[1]], label='No gesture')
+        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]), label='Class '+str(i))
+    axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture')
     axes[1].set_ylim(-0.05,1.05)        
     axes[1].legend()
     
@@ -388,13 +390,94 @@ def calcTPFPForThresholds(prediction, target, title=''):
     axes[2].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[2].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
-        axes[2].plot(f1score[:,i], label='Class '+str(i))
-    axes[2].plot(f1score[:,prediction.shape[1]], label='No gesture')
+        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]),label='Class '+str(i))
+    axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture')
     axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
-    
     axes[2].set_ylim(-0.05,1.05)        
     axes[2].legend()
     
+    axes[3].set_title('F1Score and Levenshtein Error')
+    axes[3].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[3].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[3].set_xlabel('Treshold')
+    axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
+    axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
+    axes[3].set_ylim(-0.05,2.05)        
+    axes[3].legend()
+    
+    
+    tresholds = np.argmax(f1score, 0) * stepsize
+    bestF1Score = np.max(np.mean(f1score,1))
+    
+    if postProcess:
+        t_newPred = np.copy(prediction)
+        for i in range(len(tresholds)-1):
+            inds = t_newPred[:,i] < tresholds[i]
+            t_newPred[:,i][inds]=0
+        pred, targ= calcInputSegmentSeries(t_newPred, target, 0.05, False)
+        conf = sklearn.metrics.confusion_matrix(targ,pred)
+        f1score = sklearn.metrics.f1_score(targ, pred, average=None)
+        bestF1AfterPostProcess = np.mean(f1score)
+        print conf, bestF1Score, bestF1AfterPostProcess
+    print 'best f1 score', bestF1Score, 'at', np.argmax(np.mean(f1score,1))*stepsize
+    return tresholds
+
+
+
+def calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize):
+    levs = np.zeros((int(maxTreshold*(1/stepsize)),1))
+    for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):
+        levs[ind] = calcLevenshteinError(prediction, target, i)
+    return levs
+
+def plotLevenshteinForTresholds(prediction, target):
+    maxTreshold = 1.5
+    stepsize = 0.01
+    levs = calcLevenshteinForTresholds(prediction, target,maxTreshold, stepsize)
+    fig, axes = plt.subplots(1, 1, figsize=(20,20))
+    axes.set_title('Levenshtein Distances')
+    axes.xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes.xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes.set_xlabel('Treshold')
+    axes.plot(levs)
+    print 'bestLevenshtein: ', np.min(levs), 'at', np.argmin(levs)*stepsize
+    
+ 
+def getLevenshteinSequence(prediction, target, treshold):
+    prediction = addTresholdSignal(prediction, treshold)
+    predictionInt = np.argmax(prediction, 1)
+    inds = np.where(predictionInt[:-1] != predictionInt[1:])
+    predictionInt = predictionInt[inds] 
+    predictionInt = predictionInt[np.where(predictionInt!=prediction.shape[1]-1)] +65
+    predictionChar = map(chr,predictionInt)
+    pred = ''.join(predictionChar)
+    
+    target = addNoGestureSignal(target)
+    targetInt = np.argmax(target,1)
+    inds = np.where(targetInt[:-1] != targetInt[1:])
+    targetInt= targetInt[inds] 
+    targetInt = targetInt[np.where(targetInt!=target.shape[1]-1)]+65
+    targetChar = map(chr,targetInt)
+    targ = ''.join(targetChar)
+    return pred, targ
+    
+def calcLevenshteinDistance(prediction, target, treshold=0.4):
+    pred, targ = getLevenshteinSequence(prediction, target, treshold)
+    levDist = Levenshtein.distance(pred, targ)
+    return levDist
+    
+def calcLevenshteinError(prediction, target, treshold=0.4):
+    pred, targ = getLevenshteinSequence(prediction, target, treshold)
+    levDist = calcLevenshteinDistance(prediction, target, treshold)
+    levError = levDist/float(len(targ))
+    return levError
+
+def postProcessPrediction(prediction, tresholds):
+    t_newPred = np.copy(prediction)
+    for i in range(len(tresholds)-1):
+        inds = t_newPred[:,i] < tresholds[i]
+        t_newPred[:,i][inds]=0
+    return t_newPred
     
 def getMinima(errs, nr=-1):
     
@@ -406,7 +489,9 @@ def getMinima(errs, nr=-1):
         return indTable
     else:
         return indTable[nr,:]
-    
+ 
+
+       
     
     
 def calcInputSegmentSeries(prediction, target, treshold, plot=False):
@@ -469,8 +554,8 @@ def calcInputSegmentSeries(prediction, target, treshold, plot=False):
             
 
             
-    if plot:           
-        plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
+    #if plot:           
+    #    plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
     
 
             
