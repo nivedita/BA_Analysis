@@ -8,8 +8,10 @@ from scipy.signal._peak_finding import argrelextrema
 import sklearn
 import sklearn.metrics
 from sklearn.metrics.ranking import roc_curve, auc
+import sklearn.preprocessing
 from scipy import interp
 import Levenshtein
+
 
 
 
@@ -441,25 +443,51 @@ def plotLevenshteinForTresholds(prediction, target):
     axes.set_xlabel('Treshold')
     axes.plot(levs)
     print 'bestLevenshtein: ', np.min(levs), 'at', np.argmin(levs)*stepsize
-    
- 
-def getLevenshteinSequence(prediction, target, treshold):
+
+def getLevenshteinIntSequence(prediction, target, treshold):
     prediction = addTresholdSignal(prediction, treshold)
     predictionInt = np.argmax(prediction, 1)
     inds = np.where(predictionInt[:-1] != predictionInt[1:])
-    predictionInt = predictionInt[inds] 
-    predictionInt = predictionInt[np.where(predictionInt!=prediction.shape[1]-1)] +65
-    predictionChar = map(chr,predictionInt)
-    pred = ''.join(predictionChar)
-    
+    predictionInt = predictionInt[inds]
+    predictionInt[np.where(predictionInt!=prediction.shape[1]-1)]
     target = addNoGestureSignal(target)
     targetInt = np.argmax(target,1)
     inds = np.where(targetInt[:-1] != targetInt[1:])
-    targetInt= targetInt[inds] 
-    targetInt = targetInt[np.where(targetInt!=target.shape[1]-1)]+65
+    targetInt= targetInt[inds]
+    targetInt[np.where(targetInt!=target.shape[1]-1)]
+    
+    return predictionInt,  targetInt 
+ 
+def getLevenshteinSequence(prediction, target, treshold):
+    predictionInt, targetInt = getLevenshteinIntSequence(prediction, target, treshold)
+    predictionInt = predictionInt +65
+    predictionChar = map(chr,predictionInt)
+    pred = ''.join(predictionChar)
+    targetInt = targetInt+65
     targetChar = map(chr,targetInt)
     targ = ''.join(targetChar)
     return pred, targ
+
+def plotLevenshteinStrings(prediction, target, treshold):
+    pred, targ = getLevenshteinIntSequence(prediction, target, treshold)
+    maxClass = np.max(targ)
+    predBin =np.zeros((len(pred)+1,maxClass+1))
+    targBin =np.zeros((len(targ)+1,maxClass+1))
+    for i in range(len(pred)):
+        predBin[i,pred[i]]=1
+        predBin[i+1,pred[i]]=1
+        
+    for i in range(len(targ)):
+        targBin[i,targ[i]]=-1
+        targBin[i+1,targ[i]]=-1
+    cmap = mpl.cm.jet
+    plt.figure()
+    plt.ylim(-1.5,1.5)
+    for i in range(prediction.shape[1]):
+        plt.fill_between(range(len(predBin)), 1, 0,where=predBin[:,i]==1,facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.8)
+        plt.fill_between(range(len(targBin)), -1, 0,where=targBin[:,i]==-1,facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.8)
+    print predBin
+        
     
 def calcLevenshteinDistance(prediction, target, treshold=0.4):
     pred, targ = getLevenshteinSequence(prediction, target, treshold)
@@ -664,3 +692,4 @@ def mapSegment(mapped, targetInt, predictedClass, ind):
         j = j+1
     endDel = j
     mapped[startDel:endDel] = 1 
+

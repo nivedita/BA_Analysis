@@ -99,9 +99,9 @@ class DataSet(object):
                 tLen = tLen + 1
                 i = i+1
             if tLen != 0:
-                dropArea = tLen/2
+                dropArea = tLen/4
                 #target[i-dropArea:i,2]=0
-                target[i-tLen:i-dropArea,2]=0
+                target[i-tLen:i-tLen+dropArea,2]=0
             i = i+1   
         
         readOutTrainingData = np.zeros((len(inputData),len(classNrs)))

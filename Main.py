@@ -7,6 +7,7 @@ Created on 17.02.2016
 
 import numpy
 import matplotlib
+import random
 matplotlib.use('agg')
 
 import matplotlib.pyplot as plt
@@ -77,24 +78,37 @@ def writeToReportFile(text):
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)
         spamwriter.writerow(text)
 
-def splitBySignals(inputData,target,targetCol=2):
-    startInd = 0
-    endInd = 0
-    splitted = []
-    for i in range(1,len(inputData)):
-        endInd = i
-        if (target[i-1,targetCol] > target[i,targetCol]):
-            ins = inputData[startInd:endInd,:]
-            outs = numpy.atleast_2d(target[startInd:endInd,targetCol]).T
-            lens = len(ins)
-            zeros = numpy.zeros((100-lens,len(ins[0])))
-            ins = numpy.append(ins,zeros,0)
-            outs = numpy.append(outs,numpy.zeros((100-lens,len(outs[0]))),0)                    
-            tup = (ins,outs)
-            splitted.append(tup)
-            
-            startInd = endInd
-    return splitted
+def splitBySignals(dataStep):
+#    pass
+#if __name__ == '__main__':
+    segments= []
+    for input, target in dataStep:
+        targetInt = np.argmax(addNoGestureSignal(target), 1)
+
+        
+        inds= np.append(np.where(targetInt[:-1]!= targetInt[1:]),[len(targetInt)-1])
+        
+        lastInd = -1
+        for ind in inds:
+            if targetInt[ind] != np.max(targetInt):
+                iSegment = input[lastInd+1:ind+1]
+                tSegement = target[lastInd+1:ind+1]
+                tSegement[0,:]=0
+                tSegement[-1,:]=0
+                segments.append((iSegment,tSegement))
+                lastInd = ind
+    return segments
+
+def shuffleDataStep(dataStep, nFolds):
+    segs = splitBySignals(dataStep)
+    random.shuffle(segs)
+    segs = [ segs[i::nFolds] for i in xrange(nFolds) ]
+    dataStep=[]
+    for segList in segs:
+        ind = np.concatenate([x[0] for x in segList],0)
+        t   = np.concatenate([x[1] for x in segList],0)
+        dataStep.append((ind,t))
+    return dataStep
 
 def calcWeightedAverage(input_signal, target_signal):
     global tresholdF1
@@ -189,9 +203,8 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-
-def main(name, inputGestures, usedGestures):
-     pass  
+#def main(name, inputGestures, usedGestures):
+#     pass  
 
 if __name__ == '__main__':
 
@@ -203,6 +216,8 @@ if __name__ == '__main__':
     usedGestures = [0,1,2,3,4,5,6,7,8,9]
     concFactor = 1
     noiseFactor = 0
+    nFolds = 4
+    shuffle = True
     
     plt.switch_backend('Qt4Agg')
 
@@ -222,11 +237,11 @@ if __name__ == '__main__':
         gestureNames.append(totalGestureNames[i])
     gestureNames.append('no gesture')
     
-    
-    inputFiles = ['stephan','julian','nike','nadja']
+     
+    inputFiles = ['line','stephan','nike','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['line']
+    testFiles = ['julian']
     #randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     randTestFiles = []
     
@@ -252,12 +267,14 @@ if __name__ == '__main__':
                 i[0:3] = i[0:3]+np.random.normal(0,0.05 *noiseFactor)
                 i[3:6] = i[3:6]+np.random.normal(0,0.5 * noiseFactor)
                 i[6:9] = i[6:9]+np.random.normal(0,1.25 * noiseFactor)
-                
-    
-    ## no gesture as single class
-    #    t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
+        ## no gesture as single class
+        #   t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
         dataStep.append((ind,t))
-        
+    
+    if(shuffle):
+        dataStep = shuffleDataStep(dataStep, nFolds)
+            
+            
     data=[dataStep,dataStep]
 
     for iFile in randTestFiles:
@@ -294,8 +311,8 @@ if __name__ == '__main__':
                                         'useNormalized':[2], \
                                         'leak_rate':[0.3], \
                                         'spectral_radius':[0.99], \
-                                        'output_dim':[40], \
-                                         'input_scaling':[4], \
+                                        'output_dim':[400], \
+                                         'input_scaling':[6], \
                                         '_instance':range(2)}, \
                              readoutnode:{'ridge_param':[2]}} 
     
@@ -303,7 +320,7 @@ if __name__ == '__main__':
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
     else:
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
-        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
+        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calcLevenshteinError)    
         
@@ -311,7 +328,7 @@ if __name__ == '__main__':
     opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
     mdp.activate_extension("parallel")
-    opt.grid_search(data, flow, n_folds=4, cross_validate_function=Oger.evaluation.n_fold_random)
+    opt.grid_search(data, flow, n_folds=nFolds, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
     
@@ -440,6 +457,10 @@ if __name__ == '__main__':
     
     for iFile in testFiles:
         testData = createData(iFile, inputGestures, usedGestures)
+        if shuffle:
+            testData = shuffleDataStep([testData], 1)[0]
+        
+        t_target = testData[1]
         t_prediction = bestFlow(testData[0])
         t_pp_prediction = postProcessPrediction(t_prediction, tresholds)
 
@@ -450,15 +471,20 @@ if __name__ == '__main__':
         lev_pp = calcLevenshteinError(t_pp_prediction, t_target, 0.05)
         levs.append(lev)
         levs_pp.append(lev_pp)
-        print
-        t_target = testData[1]
         fig = plt.figure(figsize=(30,30))
         fig.suptitle(iFile)
         plt.clf()
         ax1 = plt.subplot(211)
         plt.title('Prediction on test ' +iFile)
-        plt.plot(t_prediction)
-        plt.plot(testData[1])
+        cmap = mpl.cm.jet
+        for i in range(t_prediction.shape[1]):
+            plt.plot(t_prediction[:,i],c=cmap(float(i)/prediction.shape[1]),label=totalGestureNames[usedGestures[i]],linewidth=3)
+            plt.fill_between(range(len(t_prediction)), testData[1][:,i], t_prediction[:,i], where=testData[1][:,i]>t_prediction[:,i],facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.3)
+            #plt.plot(testData[1][:,i],c=cmap(float(i)/prediction.shape[1]))
+            plt.fill_between(range(len(t_prediction)), 0, t_prediction[:,i], where=t_prediction[:,i]==np.max(t_prediction,1), facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.5)
+            
+        plt.legend()
+    
         plt.subplot(212, sharex=ax1)
         plt.title('Input')
         if(bestFlow[0].useNormalized==1):
@@ -470,12 +496,13 @@ if __name__ == '__main__':
             plt.plot(testData[0][:,3:6]/reservoir.colMaxFactor[3:6],label='Rot')
             plt.plot(testData[0][:,6:9]/reservoir.colMaxFactor[6:9],label='Acc')
         plt.plot(np.sum(np.abs(bestFlow[0].states),1)/100,label='Res Energy /100')
-        
-        
-        plt.plot(testData[1])
+        #plt.plot(testData[1])
         plt.legend()
-        pp.savefig()
-    
+        
+        for limCounter in range(5):
+            plt.xlim(limCounter*1000,(limCounter+1)*1000)
+            pp.savefig()
+        
         pred, targ = calcInputSegmentSeries(t_prediction, t_target, 0.4, False)
         pp_pred, pp_targ = calcInputSegmentSeries(t_pp_prediction, t_target, 0.05, False)
         
