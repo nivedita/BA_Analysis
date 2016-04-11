@@ -97,8 +97,8 @@ def calcF1OverFloatingAverage(input_signal,target_signal):
     return calc1MinusF1Average(calcFloatingAverage(input_signal, target_signal),target_signal)
 
 def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
-    plt.figure(figsize=(15,15))
-    plt.imshow(cm, interpolation='nearest', cmap=cmap)
+    fig = plt.figure(figsize=(15,15))
+    plt.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=20)
     plt.title(title)
     plt.colorbar()
     if gestures is not None:
@@ -117,6 +117,8 @@ def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Bl
     plt.tight_layout()
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
+    
+    return fig
 
 ###
 ### counts max of last n steps
@@ -348,6 +350,10 @@ def calcFPRFromConfMatr(conf, classNr):
 
 
 def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
+    
+    gestureNames = ['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud','no gesture']
+    lines = []
+    
     maxTreshold = 1.5
     stepsize = 0.01
     tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
@@ -370,43 +376,48 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     axes[0].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[0].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[0].set_xlabel('Treshold')
-    cmap = mpl.cm.Set1
+    cmap = mpl.cm.jet
     for i in range(prediction.shape[1]):
-        axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label='Class '+str(i))
-    axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture')
+        lin, = axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i])
+        lines.append(lin)
+    lin, = axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture')
+    lines.append(lin)
     axes[0].set_ylim(-0.05,1.05)        
-    axes[0].legend()
+    
     
     axes[1].set_title('False positive rate')
     axes[1].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[1].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
-        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]), label='Class '+str(i))
+        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]),  label=gestureNames[i])
     axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture')
     axes[1].set_ylim(-0.05,1.05)        
-    axes[1].legend()
+    
     
     axes[2].set_title('F1Score')
     axes[2].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[2].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[2].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
-        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]),label='Class '+str(i))
+        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i])
     axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture')
     axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
     axes[2].set_ylim(-0.05,1.05)        
-    axes[2].legend()
     
     axes[3].set_title('F1Score and Levenshtein Error')
     axes[3].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[3].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[3].set_xlabel('Treshold')
-    axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
-    axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
+    lin, = axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
+    lines.append(lin)
+    gestureNames.append('Mean F1 Score')
+    lin, = axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
+    lines.append(lin)
+    gestureNames.append('Levenshtein Error')
     axes[3].set_ylim(-0.05,2.05)        
-    axes[3].legend()
     
+    fig.legend( lines, gestureNames, loc = '3',ncol=1, labelspacing=0. )
     
     tresholds = np.argmax(f1score, 0) * stepsize
     bestF1Score = np.max(np.mean(f1score,1))

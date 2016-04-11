@@ -203,13 +203,13 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-#def main(name, inputGestures, usedGestures):
+#def main(outDim):
 #     pass  
 
 if __name__ == '__main__':
 
-    #name = 'test'
-    name = input('name')
+    name = 'Test'
+    #name = input('name')
     normalized = False
     nmse = False
     inputGestures = [0,1,2,3,4,5,6,7,8,9]
@@ -313,8 +313,17 @@ if __name__ == '__main__':
                                         'spectral_radius':[0.99], \
                                         'output_dim':[400], \
                                          'input_scaling':[6], \
-                                        '_instance':range(2)}, \
+                                        '_instance':range(4)}, \
                              readoutnode:{'ridge_param':[2]}} 
+    gridsearch_parameters = {reservoir:{'useSparse':[True], \
+                                        'inputSignals':['FGA'], \
+                                        'useNormalized':[2], \
+                                        'leak_rate':[0.1], \
+                                        'spectral_radius':[0.9], \
+                                        'output_dim':[400], \
+                                         'input_scaling':[13], \
+                                        '_instance':range(4)}, \
+                             readoutnode:{'ridge_param':[1]}} 
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
@@ -508,7 +517,11 @@ if __name__ == '__main__':
         
         cm = sklearn.metrics.confusion_matrix(targ, pred)
         confMatrices.append(cm)
-        plot_confusion_matrix(cm,gestureNames,iFile)
+        fig1 = plot_confusion_matrix(cm,gestureNames,iFile)
+        pp.savefig()
+        
+        pp_cm = sklearn.metrics.confusion_matrix(pp_targ, pp_pred)
+        fig2 = plot_confusion_matrix(pp_cm,gestureNames,'pp_'+iFile)
         pp.savefig()
         
         f1 = np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
@@ -619,7 +632,7 @@ if __name__ == '__main__':
     print 'lev', lev, ' lev pp ', lev_pp, ':', (lev-lev_pp)
     
     #return bestFlow, opt
-    
+    #return fig1, fig2
 
 def bla():
 #if __name__ == '__main__':
@@ -631,14 +644,17 @@ def bla():
     #print '3 done' 
     #main('a_NMSE_FA',True,False,True)
     #print '4 done'
-    bestFlow, opt = main('a_0',[0],[0])
-    bestFlow, opt = main('a_1',[1],[1])
-    bestFlow, opt = main('a_2',[2],[2])
-    bestFlow, opt = main('a_3',[3],[3])
-    bestFlow, opt = main('a_4',[4],[4])
-    bestFlow, opt = main('a_5',[5],[5])
-    bestFlow, opt = main('a_6',[6],[6])
-    bestFlow, opt = main('a_7',[7],[7])
-    bestFlow, opt = main('a_8',[8],[8])
-    bestFlow, opt = main('a_9',[9],[9])
- 
+
+    pdfFileName ='resSizeInfluence.pdf'
+    resultsPath = getProjectPath()+'results/'
+    pdfFilePath = resultsPath+'pdf/'+pdfFileName
+    pp = PdfPages(pdfFilePath)
+    
+    for out in [10,20,30,40,60]:
+        fig1, fig2 = main(out)
+        pp.savefig(fig1)
+        pp.savefig(fig2)
+        
+    
+    pp.close()
+    

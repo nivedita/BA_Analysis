@@ -84,7 +84,11 @@ symbol_dict = {
     'RTN': 'Raytheon',
     'CVS': 'CVS',
     'CAT': 'Caterpillar',
-    'DD': 'DuPont de Nemours'}
+    'DD': 'DuPont de Nemours',
+    'ADSK': 'Autodesk',
+    'EA': 'EA Games',
+    'ADBE': 'Adobe Systems',
+    'PTC': 'PTC inc.'}
 
 symbols, names = np.array(list(symbol_dict.items())).T
 
@@ -101,8 +105,8 @@ variation = close - open
 
 #names = np.array(['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud'])
 #variation = t_prediction.T
-names = np.array(['fX','fY','fZ','rotX','rotY','rotZ','accX','accY','accZ'])
-variation = dataStep[1][0].T
+#names = np.array(['fX','fY','fZ','rotX','rotY','rotZ','accX','accY','accZ'])
+#variation = dataStep[1][0].T
 
 def showCovariances(names,variation):
 

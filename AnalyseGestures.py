@@ -137,18 +137,18 @@ def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTo
     plt.title('Gesture power vs length')
     plt.xlabel('Absolute power in m/s^2')
     plt.ylabel('Length in timesteps')
-    for classNr in range(0,5):
+    for classNr in range(0,4):
         cmap = cmaps[classNr]
         classLen = classRanges[classNr]
         startOfClass = np.sum(classRanges[0:classNr],None, 'int')
         for i in range(startOfClass,startOfClass+classLen):
             plt.scatter(gesturePowerMeans[i], gestureLengthMeans[i],marker='o',s=100,color=cmap(i / float(len(totalTotalGesturePower))) )    
-    for i in range(0,16):
+    for i in range(0,10):
         plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureLengthMeans[i]), xytext=(gesturePowerMeans[i], gestureLengthMeans[i]))
     pp.savefig()
     plt.figure()
     plt.title('Gesture power vs rotation')
-    for classNr in range(0,5):
+    for classNr in range(0,4):
         cmap = cmaps[classNr]
         classLen = classRanges[classNr]
         startOfClass = np.sum(classRanges[0:classNr],None, 'int')
@@ -156,7 +156,7 @@ def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTo
             plt.scatter(gesturePowerMeans[i], gestureRotationMeans[i],marker='o',s=100,color=cmap(i / float(len(totalTotalGesturePower))) )    
     plt.xlabel('Power')
     plt.ylabel('Rotation')
-    for i in range(0,16):
+    for i in range(0,10):
         plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureRotationMeans[i]), xytext=(gesturePowerMeans[i], gestureRotationMeans[i]))
     pp.savefig()
     pp.close()
@@ -169,7 +169,7 @@ def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTo
 
     legendEntries = []
     legendLabels = []
-    for classNr in range(0,5):
+    for classNr in range(0,4):
         cmap = cmaps[classNr]
         classLen = classRanges[classNr]
         startOfClass = np.sum(classRanges[0:classNr],None, 'int')
@@ -180,7 +180,7 @@ def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTo
             plt.scatter(gesturePowerMeans[i], gestureRotationMeans[i],marker='o',s=200,color=cmap(i / float(len(totalTotalGesturePower))) )
     plt.legend(legendEntries,totalGestureNames)
     
-    for i in range(0,16):
+    for i in range(0,10):
         plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureRotationMeans[i]), xytext=(gesturePowerMeans[i], gestureRotationMeans[i]))
     
     pdfIndvScatterFilePath = resultsPath+'pdf/PowerLengthScatter'+title+'_indv.pdf'
@@ -343,9 +343,9 @@ def plotDSAgainst(nr):
     julian.plot(2,False) #falsch
     
 
-def main():
-    pass
-#if __name__ == '__main__':    
+#def main():
+#    pass
+if __name__ == '__main__':    
     plt.close('all')
     resultsPath = getProjectPath()+'results/'
     
@@ -356,8 +356,8 @@ def main():
     pp = PdfPages(pdfFilePath)
     print pdfFilePath
     
-    totalGestureNames = ['snap left','snap right','snap forward','snap backward','bounce up','bounce down','turn left','turn right','shake l-r','shake u-d', \
-                         'tap left','tap right','tap front','tap back','tap top','tap bottom']
+    totalGestureNames = ['snap left','snap right','snap forward','snap backward','bounce up','bounce down','turn left','turn right','shake l-r','shake u-d']
+                         #'tap left','tap right','tap front','tap back','tap top','tap bottom']
     
         
     plt.switch_backend('Agg')
@@ -378,7 +378,7 @@ def main():
     totalTotalGestureAvgRotation = []
     lengthVariances = []
     
-    for gestureNr in range(0,16):
+    for gestureNr in range(0,10):
         totalSignalLengths = []
         totalSignalPowers = []
         totalSignalAvgPowers = []
@@ -480,22 +480,32 @@ def main():
     fig = plt.figure()
     plt.title('Length')
     plt.boxplot(totalTotalGestureLenghts, labels=totalGestureNames)
+    plt.xticks(rotation=90)
+    plt.tight_layout()
     pp.savefig()
     plt.figure()
     plt.title('Power')
     plt.boxplot(totalTotalGesturePower, labels=totalGestureNames)
+    plt.xticks(rotation=90)
+    plt.tight_layout()
     pp.savefig()
     plt.figure()
     plt.title('Avg. Power')
     plt.boxplot(totalTotalGestureAvgPower, labels=totalGestureNames)
+    plt.xticks(rotation=90)
+    plt.tight_layout()
     pp.savefig()
     plt.figure()
     plt.title('Rotation')
     plt.boxplot(totalTotalGestureRotation, labels=totalGestureNames)
+    plt.xticks(rotation=90)
+    plt.tight_layout()
     pp.savefig()
     plt.figure()
     plt.title('Avg. Rotation')
     plt.boxplot(totalTotalGestureAvgRotation, labels=totalGestureNames)
+    plt.xticks(rotation=90)
+    plt.tight_layout()
     pp.savefig()    
     pp.close()
     plt.close('all')
