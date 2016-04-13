@@ -11,6 +11,7 @@ from sklearn.metrics.ranking import roc_curve, auc
 import sklearn.preprocessing
 from scipy import interp
 import Levenshtein
+import Main
 
 
 
@@ -98,7 +99,8 @@ def calcF1OverFloatingAverage(input_signal,target_signal):
 
 def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
     fig = plt.figure(figsize=(15,15))
-    plt.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=20)
+    maxVal = np.max(cm.flatten()[:-1])
+    plt.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=maxVal)
     plt.title(title)
     plt.colorbar()
     if gestures is not None:
@@ -704,3 +706,17 @@ def mapSegment(mapped, targetInt, predictedClass, ind):
     endDel = j
     mapped[startDel:endDel] = 1 
 
+
+
+def analyzeSameReservoir100Times():
+    matplotlib.rcParams.update({'font.size': 20})
+    
+    res = np.load(Main.getProjectPath() +'2016-04-07-11-05_ManySameReservoirs.npz')
+    errs = np.squeeze(res['errors'])
+    plt.figure()
+    plt.hist(errs,20)
+    plt.xlabel('F1 Score')
+    plt.ylabel('number of instances')
+    plt.title('Histogramm of 100 instances')
+    plt.tight_layout()
+    return errs
