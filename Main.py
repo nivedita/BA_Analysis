@@ -203,19 +203,19 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-#def main(outDim):
+def main(name, concFactor):
 #     pass  
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
 
-    name = 'Test'
+    #name = 'Test'
     #name = input('name')
     normalized = False
     nmse = False
     inputGestures = [0,1,2,3,4,5,6,7,8,9]
     usedGestures = [0,1,2,3,4,5,6,7,8,9]
-    concFactor = 1
-    noiseFactor = 0
+    #concFactor = 3
+    noiseFactor = 2
     nFolds = 4
     shuffle = True
     
@@ -254,7 +254,16 @@ if __name__ == '__main__':
     
     for fileName in inputFiles:
         ind, t  = createData(fileName, inputGestures,usedGestures)
+        dataStep.append((ind,t))
+        
+    if(shuffle):
+        dataStep = shuffleDataStep(dataStep, nFolds)
+    
+    
     ## stretch testset
+    newDataStep = []
+    for ind, t in dataStep:
+        
         indSets = []
         tSets = []
         for concer in range(concFactor):
@@ -267,12 +276,10 @@ if __name__ == '__main__':
                 i[0:3] = i[0:3]+np.random.normal(0,0.05 *noiseFactor)
                 i[3:6] = i[3:6]+np.random.normal(0,0.5 * noiseFactor)
                 i[6:9] = i[6:9]+np.random.normal(0,1.25 * noiseFactor)
+        newDataStep.append((ind,t))
+    dataStep = newDataStep
         ## no gesture as single class
         #   t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
-        dataStep.append((ind,t))
-    
-    if(shuffle):
-        dataStep = shuffleDataStep(dataStep, nFolds)
             
             
     data=[dataStep,dataStep]
@@ -318,12 +325,12 @@ if __name__ == '__main__':
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
                                         'useNormalized':[2], \
-                                        'leak_rate':[0.1], \
+                                        'leak_rate':[0.2], \
                                         'spectral_radius':[0.9], \
                                         'output_dim':[400], \
-                                         'input_scaling':[13], \
-                                        '_instance':range(4)}, \
-                             readoutnode:{'ridge_param':[1]}} 
+                                         'input_scaling':[10], \
+                                        '_instance':range(5)}, \
+                             readoutnode:{'ridge_param':[4]}} 
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
@@ -334,9 +341,9 @@ if __name__ == '__main__':
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calcLevenshteinError)    
         
         
-    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
+    #opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
-    mdp.activate_extension("parallel")
+    #mdp.activate_extension("parallel")
     opt.grid_search(data, flow, n_folds=nFolds, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
@@ -634,8 +641,8 @@ if __name__ == '__main__':
     #return bestFlow, opt
     #return fig1, fig2
 
-def bla():
-#if __name__ == '__main__':
+#def bla():
+if __name__ == '__main__':
     #main('a_NMSE_F',True,False,False)
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  
@@ -645,6 +652,18 @@ def bla():
     #main('a_NMSE_FA',True,False,True)
     #print '4 done'
 
+    #main('noise_noconc_julian',['line','stephan','nike','nadja'],['julian'])
+    #main('noise_noconc_nadja',['julian','line','stephan','nike'],['nadja'])
+    #main('noise_noconc_nike',['nadja','julian','line','stephan'],['nike'])
+    #main('noise_noconc_stephan',['nike','nadja','julian','line'],['stephan'])
+    #main('test',['stephan','nike','nadja','julian'],['line'])
+    #main('conc1',1)
+    #main('conc2',2)
+    #main('conc4',4)
+    #main('conc8',8)
+    #main('conc16',16)
+    main('test',1)
+def bla(): 
     pdfFileName ='resSizeInfluence.pdf'
     resultsPath = getProjectPath()+'results/'
     pdfFilePath = resultsPath+'pdf/'+pdfFileName
