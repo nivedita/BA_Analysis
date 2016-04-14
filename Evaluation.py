@@ -351,7 +351,7 @@ def calcFPRFromConfMatr(conf, classNr):
     return float(fp)/(fp+tn)
 
 
-def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
+def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestureLength=10):
     
     gestureNames = ['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud','no gesture']
     lines = []
@@ -362,7 +362,11 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     fprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
     f1score = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
     for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):
-        pred, targ= calcInputSegmentSeries(prediction, target, i, False)
+        if not postProcess:
+            pred_new = calcMaxActivityPrediction(prediction, target, i, gestureLength)
+            pred, targ= calcInputSegmentSeries(pred_new, target, 0.5, False)
+        else:
+            pred, targ= calcInputSegmentSeries(prediction, target, 0.5, False)
         conf = sklearn.metrics.confusion_matrix(targ,pred)
         for classNr in range(prediction.shape[1]+1):
             tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)
@@ -380,9 +384,9 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     axes[0].set_xlabel('Treshold')
     cmap = mpl.cm.jet
     for i in range(prediction.shape[1]):
-        lin, = axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i])
+        lin, = axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
         lines.append(lin)
-    lin, = axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture')
+    lin, = axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
     lines.append(lin)
     axes[0].set_ylim(-0.05,1.05)        
     
@@ -392,8 +396,8 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[1].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
-        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]),  label=gestureNames[i])
-    axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture')
+        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]),  label=gestureNames[i],linewidth=2)
+    axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
     axes[1].set_ylim(-0.05,1.05)        
     
     
@@ -402,8 +406,8 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     axes[2].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[2].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
-        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i])
-    axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture')
+        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
+    axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture',linewidth=2)
     axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
     axes[2].set_ylim(-0.05,1.05)        
     
@@ -423,6 +427,7 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
     
     tresholds = np.argmax(f1score, 0) * stepsize
     bestF1Score = np.max(np.mean(f1score,1))
+    bestF1ScoreTreshold = np.argmax(np.mean(f1score,1))*stepsize
     
     if postProcess:
         t_newPred = np.copy(prediction)
@@ -434,8 +439,8 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False):
         f1score = sklearn.metrics.f1_score(targ, pred, average=None)
         bestF1AfterPostProcess = np.mean(f1score)
         print conf, bestF1Score, bestF1AfterPostProcess
-    print 'best f1 score', bestF1Score, 'at', np.argmax(np.mean(f1score,1))*stepsize
-    return tresholds
+    print 'best f1 score', bestF1Score, 'at', bestF1ScoreTreshold
+    return tresholds, bestF1Score, bestF1Score
 
 
 
@@ -534,31 +539,30 @@ def getMinima(errs, nr=-1):
 
        
 def calcMaxActivityPrediction(prediction_orig, target_orig, treshold, gestureMinLength=1):
-    target = np.copy(target_orig)
     prediction = np.copy(prediction_orig)
-    
     i = 0
     start = 0
     end = 0
     while i < prediction.shape[0]:
-        prediction[i,:] = np.mean(prediction_orig[i-5:i,:],0)
+        #prediction[i,:] = np.mean(prediction_orig[i-5:i,:],0)
         j = i
-        while j < prediction.shape[0] and np.max(prediction[j,:]) > treshold:
+        posSum = np.sum(prediction[j,:][prediction[j,:]>0])
+        while j < prediction.shape[0] and posSum > treshold:
+            posSum = np.sum(prediction[j,:][prediction[j,:]>0])
             j +=1
         if j - i > gestureMinLength:               
             start = i
             end = j
             sums = np.sum(prediction[start:end,:],0)
             predicted_class = np.argmax(sums)
-            target_classes = np.max(target[start:end,:],0)
-            prediction[start:end,:]= 0
+            prediction[start:end+1,:]= 0
             prediction[start:end,predicted_class]= 1
         else:
-            prediction[i,:]= 0
+            prediction[i:j+1,:]= 0
         i = j + 1
     return prediction
        
-
+####faslch!!!!
 def calcMaxActivitySignal(prediction, target_orig, treshold, gestureMinLength=1):
     target = np.copy(target_orig)
     targetInt = np.argmax(target)
