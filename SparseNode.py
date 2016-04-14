@@ -63,8 +63,7 @@ class SparseNode(LeakyReservoirNode):
 			self.w_in[:,6:9]=0
 		elif self.inputSignals == 'A':
 			self.w_in[:,0:6]=0
-		print(self.output_dim)
-		print(self.spectral_radius)
+
 			
 		
 			

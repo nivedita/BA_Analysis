@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import csv
 from sklearn.cluster.mean_shift_ import MeanShift
-from Main import *
-
+import Main
 
 
 class DataSet(object):
@@ -148,7 +147,7 @@ class DataSet(object):
         self.acc = np.add(np.multiply(self.acc,self.stds[6:9]),self.means[6:9])
         
     def writeToFile(self, fileName):
-        np.savez(getProjectPath()+'dataSets/'+fileName,  \
+        np.savez(Main.getProjectPath()+'dataSets/'+fileName,  \
                     fused=self.fused,gyro=self.gyro,acc=self.acc,targets=self.targets,means=self.means,stds=self.stds,gestures=self.gestures)
         
         
@@ -163,7 +162,7 @@ def normFused(X):
 
         
 def createDataSetFromFile(fileName):
-    data = np.load(getProjectPath()+'dataSets/'+fileName)
+    data = np.load(Main.getProjectPath()+'dataSets/'+fileName)
     fused = data['fused']
     gyro = data['gyro']
     acc = data['acc']

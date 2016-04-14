@@ -11,7 +11,7 @@ from sklearn.metrics.ranking import roc_curve, auc
 import sklearn.preprocessing
 from scipy import interp
 import Levenshtein
-import Main
+
 
 
 
@@ -361,12 +361,13 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestu
     tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
     fprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
     f1score = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
-    for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):
+    
+    for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):        
         if not postProcess:
             pred_new = calcMaxActivityPrediction(prediction, target, i, gestureLength)
             pred, targ= calcInputSegmentSeries(pred_new, target, 0.5, False)
         else:
-            pred, targ= calcInputSegmentSeries(prediction, target, 0.5, False)
+            pred, targ= calcInputSegmentSeries(prediction, target, i, False)
         conf = sklearn.metrics.confusion_matrix(targ,pred)
         for classNr in range(prediction.shape[1]+1):
             tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)

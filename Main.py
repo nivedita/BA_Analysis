@@ -9,7 +9,7 @@ import numpy
 import matplotlib
 import random
 matplotlib.use('agg')
-
+import Main
 import matplotlib.pyplot as plt
 import scipy
 import mdp
@@ -17,7 +17,7 @@ import csv
 import Oger
 import datetime
 from matplotlib.backends.backend_pdf import PdfPages
-from DataSet import *
+import DataSet
 from sklearn.metrics import f1_score
 from Evaluation import * 
 import Evaluation
@@ -25,6 +25,7 @@ import os
 from DataAnalysis import plot
 from DataAnalysis import subPlot
 from SparseNode import SparseNode
+import EvaluateTestFile
 
 
 def getProjectPath():
@@ -203,99 +204,12 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-def evaluateTestFile(iFile,inputGestures,usedGestures, bestFlow, tresholds, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, levs, levs_pp, pp):
-    testData = createData(iFile, inputGestures, usedGestures)
-    if shuffle:
-        testData = shuffleDataStep([testData], 1)[0]
-       
-    t_target = testData[1]
-    t_prediction = bestFlow(testData[0])
-    t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,0.5,10)
-    #t_prediction = t_maxApp_prediction
-    t_pp_prediction = postProcessPrediction(t_prediction, tresholds)
-    _, bestPossibleMaxAppF1Score,_ =  calcTPFPForThresholds(t_prediction, t_target, iFile+' - target treshold', False)
-    pp.savefig()
-    _, bestPossibleF1Score,_ =  calcTPFPForThresholds(t_prediction, t_target, iFile+' - target treshold', True)
-    
-    lev = calcLevenshteinError(t_prediction, t_target, 0.4)
-    lev_pp = calcLevenshteinError(t_pp_prediction, t_target, 0.05)
-    levs.append(lev)
-    levs_pp.append(lev_pp)
-    fig = plt.figure(figsize=(30,30))
-    fig.suptitle(iFile)
-    plt.clf()
-    ax1 = plt.subplot(211)
-    plt.title('Prediction on test ' +iFile)
-    cmap = mpl.cm.jet
-    for i in range(t_prediction.shape[1]):
-        plt.plot(t_prediction[:,i],c=cmap(float(i)/prediction.shape[1]),label=totalGestureNames[usedGestures[i]],linewidth=3)
-        plt.fill_between(range(len(t_prediction)), 1.4, 1.6, where=testData[1][:,i]==1,facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.7)
-        plt.fill_between(range(len(t_prediction)), 1.2, 1.4, where=t_prediction[:,i]==np.max(addTresholdSignal(t_prediction,0.4),1),facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.7)
-        plt.fill_between(range(len(t_prediction)), 1.0, 1.2, where=t_maxApp_prediction[:,i]==1,facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.7)
-        
-        #plt.plot(testData[1][:,i],c=cmap(float(i)/prediction.shape[1]))
-        plt.fill_between(range(len(t_prediction)), 0, t_prediction[:,i], where=t_prediction[:,i]==np.max(t_prediction,1), facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.5)
-    for limCounter in range(5):
-        plt.annotate('Target', xy=(limCounter*1000,1.45))
-        plt.annotate('Max Signal Prediction',xy=(limCounter*1000,1.25))
-        plt.annotate('Activity Treshold Prediction',xy=(limCounter*1000,1.05))
-    plt.legend()
-    plt.subplot(212, sharex=ax1)
-    plt.title('Input')
-    if(bestFlow[0].useNormalized==1):
-        plt.plot(testData[0][:,0:3]/reservoir.colStdFactor[0:3],label='Fused')
-        plt.plot(testData[0][:,3:6]/reservoir.colStdFactor[3:6],label='Rot')
-        plt.plot(testData[0][:,6:9]/reservoir.colStdFactor[6:9],label='Acc')
-    elif (bestFlow[0].useNormalized==2):
-        plt.plot(testData[0][:,0:3]/reservoir.colMaxFactor[0:3],label='Fused')
-        plt.plot(testData[0][:,3:6]/reservoir.colMaxFactor[3:6],label='Rot')
-        plt.plot(testData[0][:,6:9]/reservoir.colMaxFactor[6:9],label='Acc')
-    plt.plot(np.sum(np.abs(bestFlow[0].states),1)/100,label='Res Energy /100')
-    #plt.plot(testData[1])
-    plt.legend()
-    
-    for limCounter in range(5):
-        
-        
-        plt.xlim(limCounter*1000,(limCounter+1)*1000)
-        pp.savefig()
-     
-    pred, targ = calcInputSegmentSeries(t_prediction, t_target, 0.4, False)
-    pp_pred, pp_targ = calcInputSegmentSeries(t_pp_prediction, t_target, 0.05, False)
-    pred_maxApp, targ_maxApp = calcInputSegmentSeries(t_maxApp_prediction, t_target, 0.5)
-    
-    cm = sklearn.metrics.confusion_matrix(targ, pred)
-    confMatrices.append(cm)
-    fig1 = plot_confusion_matrix(cm,gestureNames,iFile)
-    pp.savefig()
-     
-    pp_cm = sklearn.metrics.confusion_matrix(pp_targ, pp_pred)
-    fig2 = plot_confusion_matrix(pp_cm,gestureNames,'pp_'+iFile)
-    pp.savefig()
-    
-    maxApp_cm = sklearn.metrics.confusion_matrix(targ_maxApp, pred_maxApp)
-    plot_confusion_matrix(maxApp_cm,gestureNames,'maxApp_'+iFile)
-    pp.savefig()
-    
-    
-    f1 = np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
-    f1_pp = np.mean(sklearn.metrics.f1_score(pp_targ,pp_pred,average=None))
-    f1_maxApp = np.mean(sklearn.metrics.f1_score(targ_maxApp,pred_maxApp,average=None))
-        
-    f1Scores.append(f1)
-    f1ppScores.append(f1_pp)
-    f1maxAppBestPossibleScores.append(bestPossibleMaxAppF1Score)
-    f1BestPossibleScores.append(bestPossibleF1Score)
-    f1ScoreNames.append(iFile)    
-    f1maxAppScores.append(f1_maxApp)
-    
-    return t_target,t_prediction, t_pp_prediction, t_maxApp_prediction
 
 
-#def main(name, concFactor):
+def main(name, concFactor):
 #     pass  
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})
     
     #name = 'Test'
@@ -343,7 +257,7 @@ if __name__ == '__main__':
     dataStep = []
     
     for fileName in inputFiles:
-        ind, t  = createData(fileName, inputGestures,usedGestures)
+        ind, t  = DataSet.createData(fileName, inputGestures,usedGestures)
         dataStep.append((ind,t))
         
     if(shuffle):
@@ -403,21 +317,33 @@ if __name__ == '__main__':
     flow = mdp.Flow( [reservoir,readoutnode])
     
     
+    #### experiment bigRunLev dict
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
                                         'useNormalized':[2], \
-                                        'leak_rate':[0.3], \
-                                        'spectral_radius':[0.99], \
+                                        'leak_rate':np.arange(0.1,1,0.1), \
+                                        'spectral_radius':np.arange(0.1,1.5,0.3), \
                                         'output_dim':[400], \
-                                         'input_scaling':[6], \
-                                        '_instance':range(4)}, \
-                             readoutnode:{'ridge_param':[2]}} 
+                                         'input_scaling':np.arange(1,15,3), \
+                                        '_instance':range(5)}, \
+                             readoutnode:{'ridge_param':np.arange(0,7,2)}} 
+
+    #### dict fuer conc and noise
     gridsearch_parameters = {reservoir:{'useSparse':[True], \
                                         'inputSignals':['FGA'], \
                                         'useNormalized':[2], \
                                         'leak_rate':[0.2], \
                                         'spectral_radius':[0.9], \
                                         'output_dim':[400], \
+                                         'input_scaling':[10], \
+                                        '_instance':range(10)}, \
+                             readoutnode:{'ridge_param':[4]}} 
+    gridsearch_parameters = {reservoir:{'useSparse':[True], \
+                                        'inputSignals':['FGA'], \
+                                        'useNormalized':[2], \
+                                        'leak_rate':[0.2], \
+                                        'spectral_radius':[0.9], \
+                                        'output_dim':[40], \
                                          'input_scaling':[10], \
                                         '_instance':range(5)}, \
                              readoutnode:{'ridge_param':[4]}} 
@@ -565,7 +491,7 @@ if __name__ == '__main__':
 
     
     for iFile in testFiles:
-        t_target,t_prediction, t_pp_prediction, t_maxApp_prediction = evaluateTestFile(iFile,inputGestures,usedGestures, bestFlow, tresholds, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, levs, levs_pp, pp)
+        t_target,t_prediction, t_pp_prediction, t_maxApp_prediction = EvaluateTestFile.evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames, levs, levs_pp, pp, confMatrices)
         
     
     totalCm = confMatrices[0]
@@ -667,8 +593,8 @@ if __name__ == '__main__':
     #return bestFlow, opt
     #return fig1, fig2
 
-def bla():
-#if __name__ == '__main__':
+#def bla():
+if __name__ == '__main__':
     #main('a_NMSE_F',True,False,False)
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  
@@ -688,9 +614,9 @@ def bla():
     #main('conc4',4)
     #main('conc8',8)
     #main('conc16',16)
-    main('same',1)
-    main('same',1)
-    main('same',1)
+    main('test',1)
+    #main('same',1)
+    #main('same',1)
     #main('test',1)
 def bla(): 
     pdfFileName ='resSizeInfluence.pdf'
