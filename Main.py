@@ -203,19 +203,20 @@ def w_in_init_function(output_dim, input_dim):
     return w_in
 
 
-def main(name, concFactor):
+#def main(name, concFactor):
 #     pass  
 
-#if __name__ == '__main__':
-
+if __name__ == '__main__':
+    matplotlib.rcParams.update({'font.size': 20})
+    
     #name = 'Test'
-    #name = input('name')
+    name = input('name')
     normalized = False
     nmse = False
     inputGestures = [0,1,2,3,4,5,6,7,8,9]
     usedGestures = [0,1,2,3,4,5,6,7,8,9]
-    #concFactor = 3
-    noiseFactor = 2
+    concFactor = 1
+    noiseFactor = 1
     nFolds = 4
     shuffle = True
     
@@ -478,6 +479,8 @@ def main(name, concFactor):
         
         t_target = testData[1]
         t_prediction = bestFlow(testData[0])
+        t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,0.2)
+        t_prediction = t_maxApp_prediction
         t_pp_prediction = postProcessPrediction(t_prediction, tresholds)
 
         calcTPFPForThresholds(t_prediction, t_target)
@@ -495,7 +498,10 @@ def main(name, concFactor):
         cmap = mpl.cm.jet
         for i in range(t_prediction.shape[1]):
             plt.plot(t_prediction[:,i],c=cmap(float(i)/prediction.shape[1]),label=totalGestureNames[usedGestures[i]],linewidth=3)
-            plt.fill_between(range(len(t_prediction)), testData[1][:,i], t_prediction[:,i], where=testData[1][:,i]>t_prediction[:,i],facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.3)
+            plt.fill_between(range(len(t_prediction)), 1.4, 1.6, where=testData[1][:,i]==1,facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.3)
+            plt.fill_between(range(len(t_prediction)), 1.2, 1.4, where=t_prediction[:,i]==np.max(addTresholdSignal(t_prediction,0.4),1),facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.3)
+            plt.fill_between(range(len(t_prediction)), 1.0, 1.2, where=t_maxApp_prediction[:,i]==1,facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.3)
+            
             #plt.plot(testData[1][:,i],c=cmap(float(i)/prediction.shape[1]))
             plt.fill_between(range(len(t_prediction)), 0, t_prediction[:,i], where=t_prediction[:,i]==np.max(t_prediction,1), facecolor=cmap(float(i)/prediction.shape[1]), alpha=0.5)
             
@@ -538,6 +544,15 @@ def main(name, concFactor):
         f1ppScores.append(f1_pp)
         f1ScoreNames.append(iFile)
         
+        
+        
+        pred_maxApp, targ_maxApp = calcMaxActivitySignal(t_prediction, t_target, 0.2)
+        maxApp_cm = sklearn.metrics.confusion_matrix(targ_maxApp, pred_maxApp)
+        plot_confusion_matrix(maxApp_cm,gestureNames,'maxApp_'+iFile)
+        pp.savefig()
+        f1_maxApp = np.mean(sklearn.metrics.f1_score(targ_maxApp,pred_maxApp,average=None))
+        
+        
     
     totalCm = confMatrices[0]
     for cm in confMatrices[1:]:
@@ -562,7 +577,7 @@ def main(name, concFactor):
 
     inFiles = inputFiles
     result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
-              'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores), 'meanPPF1Score',np.mean(f1ppScores),\
+              'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', np.mean(f1Scores), 'meanPPF1Score',np.mean(f1ppScores),'maxAppF1Score',f1_maxApp,\
               'Levenshtein',levs,'Levenshtein_pp',levs_pp]
     
 
@@ -641,8 +656,8 @@ def main(name, concFactor):
     #return bestFlow, opt
     #return fig1, fig2
 
-#def bla():
-if __name__ == '__main__':
+def bla():
+#if __name__ == '__main__':
     #main('a_NMSE_F',True,False,False)
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  
@@ -662,7 +677,10 @@ if __name__ == '__main__':
     #main('conc4',4)
     #main('conc8',8)
     #main('conc16',16)
-    main('test',1)
+    main('same',1)
+    main('same',1)
+    main('same',1)
+    #main('test',1)
 def bla(): 
     pdfFileName ='resSizeInfluence.pdf'
     resultsPath = getProjectPath()+'results/'

@@ -533,7 +533,84 @@ def getMinima(errs, nr=-1):
  
 
        
+def calcMaxActivityPrediction(prediction_orig, target_orig, treshold, gestureMinLength=1):
+    target = np.copy(target_orig)
+    prediction = np.copy(prediction_orig)
     
+    i = 0
+    start = 0
+    end = 0
+    while i < prediction.shape[0]:
+        prediction[i,:] = np.mean(prediction_orig[i-5:i,:],0)
+        j = i
+        while j < prediction.shape[0] and np.max(prediction[j,:]) > treshold:
+            j +=1
+        if j - i > gestureMinLength:               
+            start = i
+            end = j
+            sums = np.sum(prediction[start:end,:],0)
+            predicted_class = np.argmax(sums)
+            target_classes = np.max(target[start:end,:],0)
+            prediction[start:end,:]= 0
+            prediction[start:end,predicted_class]= 1
+        else:
+            prediction[i,:]= 0
+        i = j + 1
+    return prediction
+       
+
+def calcMaxActivitySignal(prediction, target_orig, treshold, gestureMinLength=1):
+    target = np.copy(target_orig)
+    targetInt = np.argmax(target)
+    segmentPredicted = [prediction.shape[1]]
+    segmentTarget = [prediction.shape[1]]
+    #fig, ax = plt.subplots(2, 1, True)
+    #for col in range(prediction.shape[1]):
+    #    ax[0].plot(prediction[:,col],label=str(col),linewidth=2)
+    #for col in range(target.shape[1]):
+    #    ax[0].plot(target[:,col],label='t_'+str(col),linewidth=2)
+    #ax[0].legend()
+    i = 0
+    start = 0
+    end = 0
+    while i < prediction.shape[0]:
+        j = i
+        while j < prediction.shape[0] and np.max(prediction[j,:]) > treshold:
+            j +=1
+        if j - i > gestureMinLength:               
+            start = i
+            end = j
+    #        ax[0].fill_between(np.arange(start,end), 0, 1)
+            sums = np.sum(prediction[start:end,:],0)
+            predicted_class = np.argmax(sums)
+            target_classes = np.max(target[start:end,:],0)
+            if np.max(target_classes) == 0: #wenn ein signal war ohne dass ein target da war
+                segmentPredicted.append(predicted_class)
+                segmentTarget.append(prediction.shape[1])
+            else:
+                for c, c_val in enumerate(target_classes):
+                    if c_val == 1:
+                        segmentPredicted.append(predicted_class)
+                        segmentTarget.append(c)
+                        signal_to_remove_ind = start+np.argmax(target[start:end,c],0)
+                        removeSegment(target, c, signal_to_remove_ind)
+                        
+        i = j + 1
+    pred = np.array(segmentPredicted)
+    targ = np.array(segmentTarget)
+    #for col in range(prediction.shape[1]):
+    #    ax[1].plot(prediction[:,col],label=str(col),linewidth=2)
+    #for col in range(target.shape[1]):
+    #    ax[1].plot(target[:,col],label='t_'+str(col),linewidth=2)
+        
+    for ind, line in enumerate(target):
+        if np.max(line)==1:
+            predicted_class = prediction.shape[1]
+            true_class = np.argmax(line)
+            segmentPredicted.append(predicted_class)
+            segmentTarget.append(true_class)
+            removeSegment(target, true_class, ind)
+    return pred, targ
     
 def calcInputSegmentSeries(prediction, target, treshold, plot=False):
     inds = [0]
@@ -706,6 +783,18 @@ def mapSegment(mapped, targetInt, predictedClass, ind):
     endDel = j
     mapped[startDel:endDel] = 1 
 
+def removeSegment(target, classNr, ind):
+    j = ind
+    while target[j,classNr] == 1: #wenn singal am anfang is muss man zurueck laufen
+        j = j-1
+    startDel = j
+    j = j+1
+    while j < len(target) and target[j,classNr] == 1:
+        j = j+1
+    endDel = j
+    target[startDel:endDel,classNr] = 0 
+  
+    #return target
 
 
 def analyzeSameReservoir100Times():
