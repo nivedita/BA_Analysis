@@ -7,7 +7,7 @@ import Main
 from DataSet import createData
 from Evaluation import calcMaxActivityPrediction, calcInputSegmentSeries, postProcessPrediction, calcTPFPForThresholds, calcLevenshteinError, addTresholdSignal, plot_confusion_matrix
 
-def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames, levs, levs_pp, pp, confMatrices):
+def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames, accuracies, levs, levs_pp, pp, confMatrices):
     testData = createData(iFile, inputGestures, usedGestures)
     if shuffle:
         testData = Main.shuffleDataStep([testData], 1)[0]
@@ -83,6 +83,7 @@ def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestur
     maxApp_cm = sklearn.metrics.confusion_matrix(targ_maxApp, pred_maxApp)
     plot_confusion_matrix(maxApp_cm,gestureNames,'maxApp_'+iFile)
     pp.savefig()
+    accuracies.append(np.mean(sklearn.metrics.accuracy(targ_maxApp,pred_maxApp)))
     
     
     f1 = np.mean(sklearn.metrics.f1_score(targ,pred,average=None))
