@@ -206,10 +206,10 @@ def w_in_init_function(output_dim, input_dim):
 
 
 
-def main(name, concFactor):
+#def main(name, concFactor):
 #     pass  
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})
     
     #name = 'Test'
@@ -343,7 +343,7 @@ def main(name, concFactor):
                                         'useNormalized':[2], \
                                         'leak_rate':[0.2], \
                                         'spectral_radius':[0.9], \
-                                        'output_dim':[40], \
+                                        'output_dim':[400], \
                                          'input_scaling':[10], \
                                         '_instance':range(5)}, \
                              readoutnode:{'ridge_param':[4]}} 
@@ -354,7 +354,8 @@ def main(name, concFactor):
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1Average)
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromInputSegment)    
         #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nmse)
-        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calcLevenshteinError)    
+        #opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calcLevenshteinError)    
+        opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromMaxApp)    
         
         
     #opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
@@ -417,6 +418,8 @@ def main(name, concFactor):
     trainCms = []
     trainPredicitions = []
     trainTargets = []
+    trainF1s = []
+    trainF1MaxApps=[]
     for row in axes:
         prediction = bestFlow([data[0][i][0]])
         t_target = data[0][i][1]
@@ -425,7 +428,13 @@ def main(name, concFactor):
         row.plot(prediction)
         row.plot(numpy.atleast_2d(data[0][i][1]))
         pred, targ = calcInputSegmentSeries(prediction, t_target, 0.4, False)
-        conf = sklearn.metrics.confusion_matrix(targ, pred)
+        trainF1s.append(np.mean(sklearn.metrics.f1_score(targ,pred,average=None)))
+        
+        t_maxApp_prediction = calcMaxActivityPrediction(prediction,t_target,0.5,10)
+        pred_MaxApp, targ_MaxApp = calcInputSegmentSeries(t_maxApp_prediction, t_target, 0.5)
+        trainF1MaxApps.append(np.mean(sklearn.metrics.f1_score(targ_MaxApp,pred_MaxApp,average=None)))
+        
+        conf = sklearn.metrics.confusion_matrix(targ_MaxApp, pred_MaxApp)
         trainCms.append(conf)
         trainPredicitions.append(prediction)
         trainTargets.append(t_target)
@@ -445,7 +454,7 @@ def main(name, concFactor):
     totalTrainInputData = np.concatenate(totalTrainInputData,0)
     totalTrainTargetData = np.concatenate(totalTrainTargetData,0)
     totalTrainPrediction = bestFlow(totalTrainInputData)
-    tresholds, _,_= calcTPFPForThresholds(totalTrainPrediction, totalTrainTargetData, 'Train Data Confusion - Target Treshold', False)
+    tresholds, _, bestF1ScoreTreshold = calcTPFPForThresholds(totalTrainPrediction, totalTrainTargetData, 'Train Data Confusion - Target Treshold', False)
     pp.savefig()
    
     #---------------------------------------------------------------------------------------------------#
@@ -460,6 +469,7 @@ def main(name, concFactor):
     f1maxAppScores = []
     f1maxAppBestPossibleScores= []
     f1ScoreNames = []
+    accuracies = []
     levs = []
     levs_pp = []
     for set, setName in zip(randTestSets,randTestFiles):
@@ -489,9 +499,11 @@ def main(name, concFactor):
         plot_confusion_matrix(cm,gestureNames,setName + ' - full gesture ranking')
         pp.savefig()
 
-    
+    ####################################
+    ### TESTING
+    ####################################
     for iFile in testFiles:
-        t_target,t_prediction, t_pp_prediction, t_maxApp_prediction = EvaluateTestFile.evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames, levs, levs_pp, pp, confMatrices)
+        t_target,t_prediction, t_pp_prediction, t_maxApp_prediction = EvaluateTestFile.evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, bestF1ScoreTreshold, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames,accuracies, levs, levs_pp, pp, confMatrices)
         
     
     totalCm = confMatrices[0]
@@ -517,8 +529,9 @@ def main(name, concFactor):
 
     inFiles = inputFiles
     result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
-              'TrainError',str(opt.get_minimal_error()[0]), 'meanF1Score', f1Scores, 'maxPosF1Score',f1BestPossibleScores,'meanPPF1Score',f1ppScores,'maxAppF1Score',f1maxAppScores,'bestPossibleMaxAppF1',f1maxAppBestPossibleScores,\
-              'Levenshtein',levs,'Levenshtein_pp',levs_pp]
+              'TrainError',str(opt.get_minimal_error()[0]), 'Train F1', np.mean(trainF1s),'Train F1 MaxApp',np.mean(trainF1MaxApps),\
+              'meanF1Score', f1Scores, 'bestPossF1',f1BestPossibleScores,'meanPPF1Score',f1ppScores,'maxAppF1Score',f1maxAppScores,'learnedTreshold',bestF1ScoreTreshold,'bestPossMaxAppF1',f1maxAppBestPossibleScores,'accuracies',accuracies,\
+              'Levenshtein',levs,'Levenshtein_maxApp',levs_pp]
     
 
     result.extend(['inputGestures',inputGestures])
@@ -584,6 +597,8 @@ def main(name, concFactor):
                  f1ScoreNames=f1ScoreNames,\
                  bestRes_w_in=bestFlow[0].w_in, \
                  bestRes_w=bestFlow[0].w, \
+                 t_prediction=t_prediction,\
+                 t_target=t_target\
                  )
         bestFlow.save(bestFlowPath)
         
@@ -593,8 +608,8 @@ def main(name, concFactor):
     #return bestFlow, opt
     #return fig1, fig2
 
-#def bla():
-if __name__ == '__main__':
+def bla():
+#if __name__ == '__main__':
     #main('a_NMSE_F',True,False,False)
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  

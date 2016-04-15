@@ -18,7 +18,8 @@ from Main import getProjectPath
 def execute(res, pos, signal, inputSignals ,targets, max,  pp, title='' ):
     signal = np.atleast_2d(signal) * inputSignals
     res.execute(np.atleast_2d(signal[0,:]))
-    fig = plt.figure(figsize=(20,20),title=title)
+    fig = plt.figure(figsize=(20,20))
+    fig.suptitle(title)
     neuronFig = plt.subplot2grid((2,2), (0,0), 2,1)
     mapable = neuronFig.scatter(pos[:,0],pos[:,1],c=res.states,cmap='BrBG',vmin=-1, vmax=1,marker='o',s=200)
     fig.colorbar(mapable)
@@ -30,8 +31,8 @@ def execute(res, pos, signal, inputSignals ,targets, max,  pp, title='' ):
     res.execute(signal)
 
     #print 'total activity:'+str(np.sum(np.abs(res.states)))
-    plotSeq= range(30,90)
-    plotSeq.extend(range(3000,3060))
+    plotSeq= range(10,30)
+    #plotSeq.extend(range(3000,3060))
     for i in plotSeq:
         #print res.states[i,0:10]
         #print (np.atleast_2d(signal)*inputSignals)[i,:]
@@ -179,8 +180,8 @@ def plotRes(res,input_signal,targets=None,artTrainingData=False):
     #plt.colorbar()
     #plt.waitforbuttonpress()
     execute(res, pos, signal, np.array([1,1,1,1,1,1,1,1,1]), targets, max, pp, 'All Signals')
-    execute(res, pos, signal, np.array([1,1,1,0,0,0,0,0,0]), targets, max, pp, 'Only fused')
-    execute(res, pos, signal, np.array([0,0,0,1,1,1,0,0,0]), targets, max, pp, 'Only gyro')
+    #execute(res, pos, signal, np.array([1,1,1,0,0,0,0,0,0]), targets, max, pp, 'Only fused')
+    #execute(res, pos, signal, np.array([0,0,0,1,1,1,0,0,0]), targets, max, pp, 'Only gyro')
     execute(res, pos, signal, np.array([0,0,0,0,0,0,1,1,1]), targets, max, pp, 'Only lin')
     print data.shape
     pp.close()

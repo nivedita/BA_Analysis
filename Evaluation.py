@@ -85,7 +85,12 @@ def calc1MinusF1Average(input_signal,target_signal,noSilence = False):
     if noSilence:
         return 1-np.mean(f1Scores[:-1])
     return 1-np.mean(f1Scores)
-    
+
+def calc1MinusF1FromMaxApp(input_signal,target_signal, treshold = 0.5, gestureLength = 10):
+    t_maxApp_prediction = calcMaxActivityPrediction(input_signal,target_signal,treshold,gestureLength)
+    pred_MaxApp, targ_MaxApp = calcInputSegmentSeries(t_maxApp_prediction, target_signal, 0.5)
+    return 1.0 - np.mean(sklearn.metrics.f1_score(targ_MaxApp,pred_MaxApp,average=None))
+        
     
 def calcFloatingAverage(input_signal,target_signal):
     offset = 5
@@ -350,13 +355,12 @@ def calcFPRFromConfMatr(conf, classNr):
     tn = np.sum(conf)-np.sum(conf[classNr,:])-np.sum(conf[:,classNr])+conf[classNr,classNr]
     return float(fp)/(fp+tn)
 
-
 def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestureLength=10):
     
     gestureNames = ['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud','no gesture']
     lines = []
     
-    maxTreshold = 1.5
+    maxTreshold = 2
     stepsize = 0.01
     tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
     fprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
@@ -369,17 +373,19 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestu
         else:
             pred, targ= calcInputSegmentSeries(prediction, target, i, False)
         conf = sklearn.metrics.confusion_matrix(targ,pred)
-        for classNr in range(prediction.shape[1]+1):
-            tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)
-            fprs[ind,classNr] = calcFPRFromConfMatr(conf, classNr)
+        #for classNr in range(prediction.shape[1]+1):
+        #    tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)
+        #    fprs[ind,classNr] = calcFPRFromConfMatr(conf, classNr)
+        tprs[ind] = sklearn.metrics.recall_score(targ,pred,average=None)
+        fprs[ind] = sklearn.metrics.precision_score(targ,pred,average=None)
         f1score[ind] = sklearn.metrics.f1_score(targ, pred, average=None)
     
     matplotlib.rcParams.update({'font.size': 20})
     
-    fig, axes = plt.subplots(4, 1, True, figsize=(20,20))
+    fig, axes = plt.subplots(3, 1, True, figsize=(20,20))
     fig.tight_layout(h_pad=2)
     fig.suptitle(title)
-    axes[0].set_title('True positive rate')
+    axes[0].set_title('Recall')
     axes[0].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[0].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[0].set_xlabel('Treshold')
@@ -388,17 +394,19 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestu
         lin, = axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
         lines.append(lin)
     lin, = axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
+    axes[0].plot(np.mean(tprs,1), c='Black', linestyle='--', linewidth=10, label='Mean')
     lines.append(lin)
     axes[0].set_ylim(-0.05,1.05)        
     
     
-    axes[1].set_title('False positive rate')
+    axes[1].set_title('Precision')
     axes[1].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
     axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
     axes[1].set_xlabel('Treshold')
     for i in range(prediction.shape[1]):
         axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]),  label=gestureNames[i],linewidth=2)
     axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
+    axes[1].plot(np.mean(fprs,1), c='Black', linestyle='--', linewidth=10, label='Mean')
     axes[1].set_ylim(-0.05,1.05)        
     
     
@@ -409,20 +417,20 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestu
     for i in range(prediction.shape[1]):
         axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
     axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture',linewidth=2)
-    axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
+    axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean')
     axes[2].set_ylim(-0.05,1.05)        
     
-    axes[3].set_title('F1Score and Levenshtein Error')
-    axes[3].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
-    axes[3].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
-    axes[3].set_xlabel('Treshold')
-    lin, = axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
-    lines.append(lin)
-    gestureNames.append('Mean F1 Score')
-    lin, = axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
-    lines.append(lin)
-    gestureNames.append('Levenshtein Error')
-    axes[3].set_ylim(-0.05,2.05)        
+#    axes[3].set_title('F1Score and Levenshtein Error')
+#    axes[3].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+#    axes[3].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+#    axes[3].set_xlabel('Treshold')
+#    lin, = axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
+#    lines.append(lin)
+#    gestureNames.append('Mean F1 Score')
+#    lin, = axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
+#    lines.append(lin)
+#    gestureNames.append('Levenshtein Error')
+#    axes[3].set_ylim(-0.05,2.05)        
     
     fig.legend( lines, gestureNames, loc = '3',ncol=1, labelspacing=0. )
     
@@ -441,7 +449,7 @@ def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestu
         bestF1AfterPostProcess = np.mean(f1score)
         print conf, bestF1Score, bestF1AfterPostProcess
     print 'best f1 score', bestF1Score, 'at', bestF1ScoreTreshold
-    return tresholds, bestF1Score, bestF1Score
+    return tresholds, bestF1Score, bestF1ScoreTreshold
 
 
 
