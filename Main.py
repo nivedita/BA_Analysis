@@ -210,8 +210,9 @@ def w_in_init_function(output_dim, input_dim):
 #     pass  
 
 if __name__ == '__main__':
-    matplotlib.rcParams.update({'font.size': 20})
-    
+    matplotlib.rcParams.update({'font.size': 20})    
+    plt.switch_backend('Qt4Agg')
+
     #name = 'Test'
     name = input('name')
     normalized = False
@@ -222,9 +223,8 @@ if __name__ == '__main__':
     noiseFactor = 1
     nFolds = 4
     shuffle = True
+    learnTreshold = False
     
-    plt.switch_backend('Qt4Agg')
-
     plt.close('all')
     now = datetime.datetime.now()
     resultsPath = getProjectPath()+'results/'
@@ -242,10 +242,10 @@ if __name__ == '__main__':
     gestureNames.append('no gesture')
     
      
-    inputFiles = ['line','stephan','julian','nadja']
+    inputFiles = ['nike','stephan','julian','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['nike']
+    testFiles = ['line']
     #randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     randTestFiles = []
     
@@ -280,10 +280,13 @@ if __name__ == '__main__':
                 i[0:3] = i[0:3]+np.random.normal(0,0.05 *noiseFactor)
                 i[3:6] = i[3:6]+np.random.normal(0,0.5 * noiseFactor)
                 i[6:9] = i[6:9]+np.random.normal(0,1.25 * noiseFactor)
+        
+        ## no gesture as single class
+        if learnTreshold:
+            t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)*2),1)
+        
         newDataStep.append((ind,t))
     dataStep = newDataStep
-        ## no gesture as single class
-        #   t = np.append(t,np.subtract(np.ones((t.shape[0],1)),np.max(t,1,None,True)),1)
             
             
     data=[dataStep,dataStep]
@@ -409,6 +412,10 @@ if __name__ == '__main__':
     #---------------------------------------------TRAIN EVAL--------------------------------------------#
     #---------------------------------------------------------------------------------------------------# 
 
+    print '#######################################################'
+    print '                       TRAIN EVAL                      '
+    print '#######################################################'
+     
     
     nInputFiles = len(inputFiles)
     fig, axes = plt.subplots(nInputFiles, 1, sharex=True, figsize=(20,20))
@@ -423,6 +430,13 @@ if __name__ == '__main__':
     for row in axes:
         prediction = bestFlow([data[0][i][0]])
         t_target = data[0][i][1]
+        
+        if learnTreshold:
+            learnedTreshold = prediction[:,-1]
+            t_prediction = prediction[:,:-1]
+            t_target = t_target[:,:-1]
+        
+        
         #visCalcConfusionFromMaxTargetSignal(prediction, t_target)
         row.set_title(inputFiles[i])
         row.plot(prediction)
@@ -460,6 +474,11 @@ if __name__ == '__main__':
     #---------------------------------------------------------------------------------------------------#
     #----------------------------------------------TESTING----------------------------------------------#
     #---------------------------------------------------------------------------------------------------#  
+   
+    print '#######################################################'
+    print '                      TEST EVAL                        '
+    print '#######################################################'
+     
    
     confMatrices = []
     missClassifiedGestures = []
@@ -503,7 +522,7 @@ if __name__ == '__main__':
     ### TESTING
     ####################################
     for iFile in testFiles:
-        t_target,t_prediction, t_pp_prediction, t_maxApp_prediction = EvaluateTestFile.evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, bestF1ScoreTreshold, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames,accuracies, levs, levs_pp, pp, confMatrices)
+        t_target,t_prediction, t_pp_prediction, t_maxApp_prediction, learnTreshold = EvaluateTestFile.evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, bestF1ScoreTreshold, shuffle, learnTreshold, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames,accuracies, levs, levs_pp, pp, confMatrices)
         
     
     totalCm = confMatrices[0]

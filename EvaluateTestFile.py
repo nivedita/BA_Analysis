@@ -7,15 +7,22 @@ import Main
 from DataSet import createData
 from Evaluation import calcMaxActivityPrediction, calcInputSegmentSeries, postProcessPrediction, calcTPFPForThresholds, calcLevenshteinError, addTresholdSignal, plot_confusion_matrix
 
-def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, bestF1ScoreTreshold, shuffle, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames, accuracies, levs, levs_pp, pp, confMatrices):
+def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestureNames, reservoir, bestFlow, tresholds, bestF1ScoreTreshold, shuffle, learnTreshold, f1Scores,f1BestPossibleScores, f1ppScores, f1maxAppScores, f1maxAppBestPossibleScores, f1ScoreNames, accuracies, levs, levs_pp, pp, confMatrices):
     testData = createData(iFile, inputGestures, usedGestures)
     if shuffle:
         testData = Main.shuffleDataStep([testData], 1)[0]
-       
+     
 
     t_target = testData[1]
     t_prediction = bestFlow(testData[0])
-    t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,bestF1ScoreTreshold,10)
+    if learnTreshold:
+        learnedTreshold = t_prediction[:,-1]
+        t_prediction = t_prediction[:,:-1]
+        tresholds = tresholds[:-1]
+        t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,learnedTreshold,10)
+    else:    
+        learnedTreshold = np.ones((t_prediction.shape[1],1))*bestF1ScoreTreshold
+        t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,bestF1ScoreTreshold,10)
     #t_prediction = t_maxApp_prediction
     t_pp_prediction = postProcessPrediction(t_prediction, tresholds)
 
@@ -38,14 +45,15 @@ def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestur
         plt.plot(t_prediction[:,i],c=cmap(float(i)/t_prediction.shape[1]),label=totalGestureNames[usedGestures[i]],linewidth=3)
         plt.fill_between(range(len(t_prediction)), 1.4, 1.6, where=testData[1][:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
         plt.fill_between(range(len(t_prediction)), 1.2, 1.4, where=t_prediction[:,i]==np.max(addTresholdSignal(t_prediction,0.4),1),facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
-        plt.fill_between(range(len(t_prediction)), 1.0, 1.2, where=t_maxApp_prediction[:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
-        
-        #plt.plot(testData[1][:,i],c=cmap(float(i)/prediction.shape[1]))
+        plt.fill_between(range(len(t_prediction)), 1.0, 1.2, where=t_maxApp_prediction[:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)    
         plt.fill_between(range(len(t_prediction)), 0, t_prediction[:,i], where=t_prediction[:,i]==np.max(t_prediction,1), facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.5)
+    if learnTreshold:
+        plt.plot(learnedTreshold,c='black',label='treshold',linewidth=2)
+        
     for limCounter in range(5):
-        plt.annotate('Target', xy=(limCounter*1000,1.45))
-        plt.annotate('Max Signal Prediction',xy=(limCounter*1000,1.25))
-        plt.annotate('Activity Treshold Prediction',xy=(limCounter*1000,1.05))
+        plt.annotate('Target', xy=(limCounter*1000+1,1.45))
+        plt.annotate('ArgMax Prediction',xy=(limCounter*1000+1,1.25))
+        plt.annotate('Segmented Prediction',xy=(limCounter*1000+1,1.05))
     plt.legend()
     plt.subplot(212, sharex=ax1)
     plt.title('Input')
@@ -95,4 +103,4 @@ def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestur
     f1ScoreNames.append(iFile)    
     f1maxAppScores.append(f1_maxApp)
     
-    return t_target,t_prediction, t_pp_prediction, t_maxApp_prediction
+    return t_target,t_prediction, t_pp_prediction, t_maxApp_prediction, learnedTreshold

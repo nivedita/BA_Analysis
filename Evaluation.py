@@ -552,11 +552,18 @@ def calcMaxActivityPrediction(prediction_orig, target_orig, treshold, gestureMin
     i = 0
     start = 0
     end = 0
+    
+    if not type(treshold) is np.ndarray:
+        treshold = np.ones((prediction_orig.shape[0],1))*treshold
+        
+    #print 'type of treshold', type(treshold)
+    #print treshold
+    
     while i < prediction.shape[0]:
         #prediction[i,:] = np.mean(prediction_orig[i-5:i,:],0)
         j = i
         posSum = np.sum(prediction[j,:][prediction[j,:]>0])
-        while j < prediction.shape[0] and posSum > treshold:
+        while j < prediction.shape[0] and posSum > treshold[j]:
             posSum = np.sum(prediction[j,:][prediction[j,:]>0])
             j +=1
         if j - i > gestureMinLength:               
