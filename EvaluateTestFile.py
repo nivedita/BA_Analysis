@@ -68,6 +68,7 @@ def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestur
     plt.plot(np.sum(np.abs(bestFlow[0].states),1)/100,label='Res Energy /100')
     #plt.plot(testData[1])
     plt.legend()
+    plt.xlabel('timestep')
     
     for limCounter in range(5):
         plt.xlim(limCounter*1000,(limCounter+1)*1000)

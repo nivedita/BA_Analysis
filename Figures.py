@@ -37,3 +37,22 @@ def createTargetShapeDelayFigure():
 if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})
     
+    
+    
+    print np.mean(np.array([[0.9001303355669702],
+[0.95867293713016655],
+[0.87347067632911568],
+[0.9721986101416582]
+
+
+
+
+
+
+
+
+
+]))
+
+    
+    

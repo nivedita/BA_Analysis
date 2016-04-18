@@ -206,15 +206,15 @@ def w_in_init_function(output_dim, input_dim):
 
 
 
-#def main(name, concFactor):
+def main(name):
 #     pass  
 
-if __name__ == '__main__':
+#if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})    
     plt.switch_backend('Qt4Agg')
 
     #name = 'Test'
-    name = input('name')
+    #name = input('name')
     normalized = False
     nmse = False
     inputGestures = [0,1,2,3,4,5,6,7,8,9]
@@ -438,7 +438,7 @@ if __name__ == '__main__':
         
         
         #visCalcConfusionFromMaxTargetSignal(prediction, t_target)
-        row.set_title(inputFiles[i])
+        row.set_title('Trainset '+str(i))
         row.plot(prediction)
         row.plot(numpy.atleast_2d(data[0][i][1]))
         pred, targ = calcInputSegmentSeries(prediction, t_target, 0.4, False)
@@ -626,9 +626,10 @@ if __name__ == '__main__':
 
     #return bestFlow, opt
     #return fig1, fig2
+    return f1maxAppScores
 
-def bla():
-#if __name__ == '__main__':
+#def bla():
+if __name__ == '__main__':
     #main('a_NMSE_F',True,False,False)
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  
@@ -648,7 +649,9 @@ def bla():
     #main('conc4',4)
     #main('conc8',8)
     #main('conc16',16)
-    main('test',1)
+    f1s = []
+    for _ in range(1):
+        f1s.append(main('test'))
     #main('same',1)
     #main('same',1)
     #main('test',1)
