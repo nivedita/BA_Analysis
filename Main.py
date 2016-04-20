@@ -25,13 +25,11 @@ import os
 from DataAnalysis import plot
 from DataAnalysis import subPlot
 from SparseNode import SparseNode
+import OptDicts
 import EvaluateTestFile
+from Utils import getProjectPath
 
 
-def getProjectPath():
-    projectPath = 'C:\Users\Steve\Documents\Eclipse Projects\BA_Analysis\\'
-    #projectPath = os.environ['HOME']+'/pythonProjects/BA_Analysis2/BA_Analysis/'
-    return projectPath
 
 def transformToDelta(vals):
     newVals = numpy.zeros((len(vals),len(vals[0])))
@@ -206,24 +204,28 @@ def w_in_init_function(output_dim, input_dim):
 
 
 
-def main(name):
+#def main(name):
 #     pass  
 
-#if __name__ == '__main__':
+if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})    
     plt.switch_backend('Qt4Agg')
 
     #name = 'Test'
-    #name = input('name')
+    name = input('name')
     normalized = False
     nmse = False
     inputGestures = [0,1,2,3,4,5,6,7,8,9]
     usedGestures = [0,1,2,3,4,5,6,7,8,9]
     concFactor = 1
     noiseFactor = 1
-    nFolds = 4
+    nFolds = 5
     shuffle = True
     learnTreshold = False
+    optDict = 'test'
+    inputFiles = ['nike','julian','nadja','line']
+    testFiles = ['stephan']
+    
     
     plt.close('all')
     now = datetime.datetime.now()
@@ -242,10 +244,8 @@ def main(name):
     gestureNames.append('no gesture')
     
      
-    inputFiles = ['nike','stephan','julian','nadja']
     
     #inputFiles = ['nadja_0_1.npz', 'nadja_0_2.npz', 'nadja_0_3.npz']
-    testFiles = ['line']
     #randTestFiles = ['lana_0_0.npz','lana_1_0.npz','stephan_0_2.npz','stephan_1_2.npz']
     randTestFiles = []
     
@@ -320,36 +320,12 @@ def main(name):
     flow = mdp.Flow( [reservoir,readoutnode])
     
     
-    #### experiment bigRunLev dict
-    gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA'], \
-                                        'useNormalized':[2], \
-                                        'leak_rate':np.arange(0.1,1,0.1), \
-                                        'spectral_radius':np.arange(0.1,1.5,0.3), \
-                                        'output_dim':[400], \
-                                         'input_scaling':np.arange(1,15,3), \
-                                        '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':np.arange(0,7,2)}} 
 
-    #### dict fuer conc and noise
-    gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA'], \
-                                        'useNormalized':[2], \
-                                        'leak_rate':[0.2], \
-                                        'spectral_radius':[0.9], \
-                                        'output_dim':[400], \
-                                         'input_scaling':[10], \
-                                        '_instance':range(10)}, \
-                             readoutnode:{'ridge_param':[4]}} 
-    gridsearch_parameters = {reservoir:{'useSparse':[True], \
-                                        'inputSignals':['FGA'], \
-                                        'useNormalized':[2], \
-                                        'leak_rate':[0.2], \
-                                        'spectral_radius':[0.9], \
-                                        'output_dim':[400], \
-                                         'input_scaling':[10], \
-                                        '_instance':range(5)}, \
-                             readoutnode:{'ridge_param':[4]}} 
+    
+    resParams, readoutParams = OptDicts.getDicts(optDict)
+    gridsearch_parameters = {reservoir:resParams,\
+                             readoutnode:readoutParams}
+    
     
     if nmse:
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Oger.utils.nrmse)
@@ -402,7 +378,7 @@ def main(name):
                 plotAlongAxisErrors(opt.errors, opt.parameters, opt.parameter_ranges, normAxis, inputSignalAxis, inputScalingAxis, pp)
     
     bestFlow = opt.get_optimal_flow(True)
-    
+    bestFlowUntrained = bestFlow.copy()
     
     
     bestFlow.train(data)
@@ -457,11 +433,15 @@ def main(name):
     pp.savefig()
    
     
-    
-    for fileName,trainCm in zip(inputFiles,trainCms):
-        plot_confusion_matrix(trainCm, gestureNames, 'trainging: '+fileName)
+    for enum, trainCm in enumerate(trainCms):
+        plot_confusion_matrix(trainCm, gestureNames, 'trainging set'+str(enum))
         pp.savefig()
-   
+        
+    
+    totalTrainCm = np.sum(np.concatenate(map(np.atleast_3d, trainCms),2),2)
+    plot_confusion_matrix(totalTrainCm, gestureNames, 'Total training data')
+    pp.savefig()
+    
    
     totalTrainInputData = [x[0] for x in dataStep]
     totalTrainTargetData = [x[1] for x in dataStep]
@@ -470,7 +450,12 @@ def main(name):
     totalTrainPrediction = bestFlow(totalTrainInputData)
     tresholds, _, bestF1ScoreTreshold = calcTPFPForThresholds(totalTrainPrediction, totalTrainTargetData, 'Train Data Confusion - Target Treshold', False)
     pp.savefig()
-   
+    
+    
+    
+    f1Cross = Oger.evaluation.validate(data, bestFlowUntrained, Evaluation.calc1MinusF1FromMaxApp, cross_validate_function=Oger.evaluation.leave_one_out)
+    accuracyCross = Oger.evaluation.validate(data, bestFlowUntrained, Evaluation.calcAccuracyFromMaxApp, cross_validate_function=Oger.evaluation.leave_one_out)
+
     #---------------------------------------------------------------------------------------------------#
     #----------------------------------------------TESTING----------------------------------------------#
     #---------------------------------------------------------------------------------------------------#  
@@ -548,7 +533,7 @@ def main(name):
 
     inFiles = inputFiles
     result = [str(now),name,inputFiles,testFiles,opt.loss_function, \
-              'TrainError',str(opt.get_minimal_error()[0]), 'Train F1', np.mean(trainF1s),'Train F1 MaxApp',np.mean(trainF1MaxApps),\
+              'TrainError',str(opt.get_minimal_error()[0]), 'Train F1', np.mean(trainF1s),'Train F1 MaxApp',np.mean(f1Cross),'train accuracies',np.mean(accuracyCross),\
               'meanF1Score', f1Scores, 'bestPossF1',f1BestPossibleScores,'meanPPF1Score',f1ppScores,'maxAppF1Score',f1maxAppScores,'learnedTreshold',bestF1ScoreTreshold,'bestPossMaxAppF1',f1maxAppBestPossibleScores,'accuracies',accuracies,\
               'Levenshtein',levs,'Levenshtein_maxApp',levs_pp]
     
@@ -626,10 +611,10 @@ def main(name):
 
     #return bestFlow, opt
     #return fig1, fig2
-    return f1maxAppScores
+    #return f1maxAppScores
 
-#def bla():
-if __name__ == '__main__':
+def bla():
+#if __name__ == '__main__':
     #main('a_NMSE_F',True,False,False)
     #print 'one done'
     #main('a_NMSE_G',False,True,False)  
@@ -649,10 +634,10 @@ if __name__ == '__main__':
     #main('conc4',4)
     #main('conc8',8)
     #main('conc16',16)
-    f1s = []
-    for _ in range(1):
-        f1s.append(main('test'))
-    #main('same',1)
+    #f1s = []
+    #for _ in range(4):
+    #    f1s.append(main('test'))
+    main('test')
     #main('same',1)
     #main('test',1)
 def bla(): 

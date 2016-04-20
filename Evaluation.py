@@ -90,6 +90,11 @@ def calc1MinusF1FromMaxApp(input_signal,target_signal, treshold = 0.5, gestureLe
     t_maxApp_prediction = calcMaxActivityPrediction(input_signal,target_signal,treshold,gestureLength)
     pred_MaxApp, targ_MaxApp = calcInputSegmentSeries(t_maxApp_prediction, target_signal, 0.5)
     return 1.0 - np.mean(sklearn.metrics.f1_score(targ_MaxApp,pred_MaxApp,average=None))
+
+def calcAccuracyFromMaxApp(input_signal,target_signal, treshold = 0.5, gestureLength = 10):
+    t_maxApp_prediction = calcMaxActivityPrediction(input_signal,target_signal,treshold,gestureLength)
+    pred_MaxApp, targ_MaxApp = calcInputSegmentSeries(t_maxApp_prediction, target_signal, 0.5)
+    return sklearn.metrics.accuracy_score(targ_MaxApp,pred_MaxApp)
         
     
 def calcFloatingAverage(input_signal,target_signal):
