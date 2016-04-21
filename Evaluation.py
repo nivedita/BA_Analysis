@@ -255,7 +255,8 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
     
     nParams = len(params)
     if plotAxis >= nParams or xAxis >= nParams or yAxis >= nParams or plotAxis is None or xAxis is None or yAxis is None:
-        return
+        print 'Error in plot along axis:' , nParams
+        return 
     minAxes = range(0,len(params))
     minAxes.remove(plotAxis)
     minAxes.remove(xAxis)
@@ -269,15 +270,15 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
         mins = np.delete(mins, range(1,100),plotAxis)
         mins = np.atleast_2d(np.squeeze(mins))
         plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=minVal, vmax=1)
-        plt.xlabel(params[xAxis][1])
-        plt.ylabel(params[yAxis][1])
+        plt.xlabel(params[yAxis][1])
+        plt.ylabel(params[xAxis][1])
                 
         plt.colorbar()
         if ranges is not None:
             tick_marks = np.arange(len(mins[0]))
-            plt.xticks(tick_marks, ranges[xAxis], rotation=45)
+            plt.xticks(tick_marks, ranges[yAxis], rotation=45)
             tick_marks = np.arange(len(mins))
-            plt.yticks(tick_marks, ranges[yAxis])
+            plt.yticks(tick_marks, ranges[xAxis])
         plt.tight_layout()
                 
         if pp is not None:
