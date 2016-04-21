@@ -10,6 +10,7 @@
 
 *.pyc
 
+Utils.py
 results/old/
 results/2*
 results
