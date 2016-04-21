@@ -42,17 +42,26 @@ def getDicts(name):
                                         'spectral_radius':[1], \
                                         'output_dim':[400], \
                                          'input_scaling':[13], \
-                                        '_instance':range(2)}, \
+                                        '_instance':range(5)}, \
                              {'ridge_param':[0.01]}),
     
-    #best paras
+
     'test':({'useSparse':[True], \
                                         'inputSignals':['FGA'], \
-                                        'useNormalized':[2], \
+                                        'useNormalized':[0,1,2], \
                                         'leak_rate':[0.3], \
                                         'spectral_radius':[1], \
                                         'output_dim':[400], \
-                                         'input_scaling':[100], \
+                                         'input_scaling':[0.1,0.5,1,13], \
+                                        '_instance':range(4)}, \
+                             {'ridge_param':[0.01]}),
+    'influenceInputNormalisationVsScaling':({'useSparse':[True], \
+                                        'inputSignals':['FGA'], \
+                                        'useNormalized':[0,1,2], \
+                                        'leak_rate':[0.3], \
+                                        'spectral_radius':[1], \
+                                        'output_dim':[400], \
+                                         'input_scaling':[0.125,0.25,0.5,1,2,4,8,16], \
                                         '_instance':range(4)}, \
                              {'ridge_param':[0.01]}),
             
