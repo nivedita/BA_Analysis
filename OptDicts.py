@@ -42,7 +42,7 @@ def getDicts(name):
                                         'spectral_radius':[1], \
                                         'output_dim':[400], \
                                          'input_scaling':[13], \
-                                        '_instance':range(2)}, \
+                                        '_instance':range(5)}, \
                              {'ridge_param':[0.01]}),
     
     #best paras
