@@ -269,16 +269,28 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
         mins = np.delete(totalMins, range(0,i), plotAxis)
         mins = np.delete(mins, range(1,100),plotAxis)
         mins = np.atleast_2d(np.squeeze(mins))
-        plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=minVal, vmax=1)
-        plt.xlabel(params[yAxis][1])
-        plt.ylabel(params[xAxis][1])
-                
+        plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=0, vmax=1)
+        print mins.shape
+        print params[yAxis][1]
+        print params[xAxis][1]
+        
+        if(mins.shape[0]!=len(ranges[xAxis])):
+            plt.xlabel(params[xAxis][1])
+            plt.ylabel(params[yAxis][1])
+            if ranges is not None:
+                tick_marks = np.arange(len(mins[0]))
+                plt.xticks(tick_marks, ranges[xAxis], rotation=45)
+                tick_marks = np.arange(len(mins))
+                plt.yticks(tick_marks, ranges[yAxis])
+        else:
+            plt.xlabel(params[yAxis][1])
+            plt.ylabel(params[xAxis][1])
+            if ranges is not None:
+                tick_marks = np.arange(len(mins[0]))
+                plt.xticks(tick_marks, ranges[yAxis], rotation=45)
+                tick_marks = np.arange(len(mins))
+                plt.yticks(tick_marks, ranges[xAxis])
         plt.colorbar()
-        if ranges is not None:
-            tick_marks = np.arange(len(mins[0]))
-            plt.xticks(tick_marks, ranges[yAxis], rotation=45)
-            tick_marks = np.arange(len(mins))
-            plt.yticks(tick_marks, ranges[xAxis])
         plt.tight_layout()
                 
         if pp is not None:
