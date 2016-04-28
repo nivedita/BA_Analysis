@@ -125,6 +125,10 @@ def makeScatterPlots(totalTotalGesturePower,totalTotalGestureRotation,totalTotal
 
 
 def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTotalGestureLenghts, title, xlim = None, ylim = None):
+    for i in range(len(totalTotalGesturePower)):
+        totalTotalGesturePower[i] = totalTotalGesturePower[i]/30
+        totalTotalGestureRotation[i] = totalTotalGestureRotation[i] /30
+        
     
     cmaps = [mpl.cm.Reds_r,mpl.cm.Blues_r,mpl.cm.Greens_r,mpl.cm.Purples,mpl.cm.Oranges_r]
     classRanges = [4,2,2,2,6]
@@ -146,26 +150,30 @@ def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTo
     for i in range(0,10):
         plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureLengthMeans[i]), xytext=(gesturePowerMeans[i], gestureLengthMeans[i]))
     pp.savefig()
+    
+    
+    
+    
     plt.figure()
-    plt.title('Gesture power vs rotation')
     for classNr in range(0,4):
         cmap = cmaps[classNr]
         classLen = classRanges[classNr]
         startOfClass = np.sum(classRanges[0:classNr],None, 'int')
         for i in range(startOfClass,startOfClass+classLen):
             plt.scatter(gesturePowerMeans[i], gestureRotationMeans[i],marker='o',s=100,color=cmap(i / float(len(totalTotalGesturePower))) )    
-    plt.xlabel('Power')
-    plt.ylabel('Rotation')
+    plt.xlabel('Power in $m/s^2$')
+    plt.ylabel('Rotation in $rad/timestep$')
     for i in range(0,10):
         plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureRotationMeans[i]), xytext=(gesturePowerMeans[i], gestureRotationMeans[i]))
     pp.savefig()
     pp.close()
     
-    fig = plt.figure(figsize=(10,10))
-    plt.title('Gesture power vs rotation')
-
-    plt.xlabel('Power')
-    plt.ylabel('Rotation')
+    fig = plt.figure(figsize=(20,10))
+    
+    matplotlib.rcParams.update({'font.size': 30})    
+    
+    plt.xlabel('$Average$ $acceleration$ $in$ $m/ s^2$')
+    plt.ylabel('$Average$ $rotation$ $in$ $rad/s$')
 
     legendEntries = []
     legendLabels = []
@@ -174,48 +182,61 @@ def makeScatterPlotIndv(totalTotalGesturePower,totalTotalGestureRotation,totalTo
         classLen = classRanges[classNr]
         startOfClass = np.sum(classRanges[0:classNr],None, 'int')
         for i in range(startOfClass,startOfClass+classLen):
-            legEnt = plt.scatter(totalTotalGesturePower[i], totalTotalGestureRotation[i],marker='o',color=cmap(i / float(len(totalTotalGesturePower))) )
+            legEnt = plt.scatter(totalTotalGesturePower[i], totalTotalGestureRotation[i],s=70,marker='o',color=cmap(i / float(len(totalTotalGesturePower))) )
             legendEntries.append(legEnt)
             legendLabels.append(i)
-            plt.scatter(gesturePowerMeans[i], gestureRotationMeans[i],marker='o',s=200,color=cmap(i / float(len(totalTotalGesturePower))) )
-    plt.legend(legendEntries,totalGestureNames)
+    for i in range(10):
+        plt.scatter(gesturePowerMeans[i], gestureRotationMeans[i],marker='o',s=200,color='black')
+        legendLabels[i] = str(i)+' - '+totalGestureNames[i]
+    plt.legend(legendEntries,legendLabels)
     
     for i in range(0,10):
         plt.annotate(str(i), xy=(gesturePowerMeans[i], gestureRotationMeans[i]), xytext=(gesturePowerMeans[i], gestureRotationMeans[i]))
     
+    plt.xlim(0,1.8)
+    plt.tight_layout()
     pdfIndvScatterFilePath = resultsPath+'pdf/PowerLengthScatter'+title+'_indv.pdf'
     pp = PdfPages(pdfIndvScatterFilePath)
     pp.savefig()
-    
-    if xlim is not None:
-        plt.xlim(xlim)
-    if ylim is not None:
-        plt.ylim(ylim)
-    
+     
+    #===========================================================================
+    # if xlim is not None:
+    #     plt.xlim(xlim)
+    # if ylim is not None:
+    #     plt.ylim(ylim)
+    # 
+    #===========================================================================
     pp.savefig()
     pp.close()
 
 
 
 def plot3dFused(signals,name):
+    gestures = ['snap left','snap right','snap forward','snap backward']
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     cmap = mpl.cm.Set1
     for k, sig in enumerate(signals):
         for j, fused1 in enumerate(sig.getAllSignals()):
-            fused1  = fused1[:,6:9]
+            fused1  = fused1[:,3:6]
             fusedInt1 = np.zeros(fused1.shape)
             for i in range(0,fused1.shape[0]):
                 fusedInt1[i] = np.sum(fused1[:i],0)
+            fusedInt = fused1
             if j == 0:
-                ax.plot(fusedInt1[:,0],fusedInt1[:,1],fusedInt1[:,2],c=cmap(k / float(len(signals))),label=str(k))
+                ax.plot(fusedInt1[:,0],fusedInt1[:,1],fusedInt1[:,2],linewidth=2,c=cmap(k / float(len(signals))),label=gestures[k])
             else:
-                ax.plot(fusedInt1[:,0],fusedInt1[:,1],fusedInt1[:,2],c=cmap(k / float(len(signals))))
+                ax.plot(fusedInt1[:,0],fusedInt1[:,1],fusedInt1[:,2],linewidth=2,c=cmap(k / float(len(signals))))
             
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title(name)
+
+    ax.xaxis.labelpad=30
+    ax.yaxis.labelpad=30
+    ax.zaxis.labelpad=30
+    ax.set_xlabel('X rotation')
+    ax.set_ylabel('Y rotation')
+    ax.set_zlabel('Z rotation')
+
+    #ax.set_title(name)
     ax.legend()
 
 def plotGesturesVs():
@@ -270,11 +291,11 @@ def plotGesturesVs():
 
 
     for name in ['stephan','julian','nadja','line','nike']:
-        ds1 = createDataSetFromFile(name+'_7_fullSet.npz')
-        ds2 = createDataSetFromFile(name+'_7_fullSet.npz')
-        ds3 = createDataSetFromFile(name+'_8_fullSet.npz')
-        ds4 = createDataSetFromFile(name+'_8_fullSet.npz')
-        plot3dFused([ds1, ds2,ds3,ds4],name)
+        ds1 = createDataSetFromFile(name+'_0_fullSet.npz')
+        ds2 = createDataSetFromFile(name+'_1_fullSet.npz')
+        ds3 = createDataSetFromFile(name+'_2_fullSet.npz')
+        ds4 = createDataSetFromFile(name+'_3_fullSet.npz')
+        plot3dFused([ds1, ds2,ds3,ds4],'Gyroscope trajectories for snap gestures')
         
     for j, signal in enumerate(createDataSetFromFile('nike_3_fullSet.npz').getAllSignals()):
         fig,axes = plt.subplots(2, 1, True)
@@ -343,11 +364,12 @@ def plotDSAgainst(nr):
     julian.plot(2,False) #falsch
     
 
-#def main():
+def main():
 #    pass
-if __name__ == '__main__':    
+#if __name__ == '__main__':    
     plt.close('all')
-    resultsPath = getProjectPath()+'results/'
+    matplotlib.rcParams.update({'font.size': 20})    
+    
     
     now = datetime.datetime.now()
     resultsPath = getProjectPath()+'results/'
@@ -478,9 +500,10 @@ if __name__ == '__main__':
     pdfFilePath = resultsPath+'pdf/totalGesture.pdf'
     pp = PdfPages(pdfFilePath)
     fig = plt.figure()
-    plt.title('Length')
+    plt.title('Boxplot of sample lengths per gesture')
     plt.boxplot(totalTotalGestureLenghts, labels=totalGestureNames)
     plt.xticks(rotation=90)
+    plt.ylabel('timesteps')
     plt.tight_layout()
     pp.savefig()
     plt.figure()
