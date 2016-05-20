@@ -11,6 +11,7 @@ from sklearn.metrics.ranking import roc_curve, auc
 import sklearn.preprocessing
 from scipy import interp
 import Levenshtein
+from matplotlib.colors import LinearSegmentedColormap
 
 
 
@@ -219,7 +220,26 @@ def plotMinErrorsToFIle(opt):
     pp.close()
 
    
-def plotMinErrors(errs, params,ranges,pp):
+
+   
+def getSpecificColorMap():
+    cdict = {'red': ((0.0,  1.0, 1.0),
+                     (0.05,  1.0, 1.0),
+                     (0.5,  0.0, 0.0),
+                     (1.0,  0.0, 0.0)),
+
+            'green':((0.0,  1.0, 1.0),
+                     (0.05,  1.0, 1.0),
+                     (1.0,  0.0, 0.0)),
+
+            'blue': ((0.0,  1.0, 1.0),
+                     (0.05,  1.0, 1.0 ),
+                     (0.5,  1.0, 1.0),
+                     (1.0,  0.0, 0.0))}
+    blue_red1 = LinearSegmentedColormap('BlueRed1', cdict)
+    return blue_red1
+       
+def plotMinErrors(errs, params,ranges,pp, cmap='Blues'):
     minVal = np.min(errs)
     min_ind = np.unravel_index(errs.argmin(), errs.shape)
     for i in range(0,len(min_ind)):
@@ -231,7 +251,7 @@ def plotMinErrors(errs, params,ranges,pp):
                 minAxes.remove(j)
                 mins = np.min(errs,tuple(minAxes))
                 plt.figure()
-                plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=minVal, vmax=1)
+                plt.imshow(mins, interpolation='nearest',cmap=cmap,vmin=0, vmax=1)
                 plt.xlabel(params[j][1])
                 plt.ylabel(params[i][1])
                 
@@ -247,9 +267,62 @@ def plotMinErrors(errs, params,ranges,pp):
                     pp.savefig()
                 #plot_confusion_matrix(cm, gestures, title, cmap)
         #TODO:plot all dims
+ 
+
+def plotMinErrorsSqueezed(errs, params,ranges,pp, cmap='Blues'):
+    minVal = np.min(errs)
+    min_ind = np.unravel_index(errs.argmin(), errs.shape)
+    for i in range(0,len(min_ind)):
+        for j in range(i,len(min_ind)):
+            if(j != i and errs.shape[i] > 1 and errs.shape[j] > 1 and \
+                params[i][1] != '_instance' and params[j][1] != '_instance' ):
+                minAxes = range(0,len(min_ind))
+                minAxes.remove(i)
+                minAxes.remove(j)
+                mins = np.min(errs,tuple(minAxes))
+                minTeiler = np.min(ranges[j])
+                j_range =  ranges[j] / np.max([0.1,minTeiler])
+                newMins = np.empty((mins.shape[0],0))
+                
+                print ranges[j],len(ranges[j]), mins.shape
+                for entry_ind, entry in enumerate(j_range):
+                    for _ in range(int(entry)):
+                        newMins = np.append(newMins,np.atleast_2d(mins[:,entry_ind]).T,1)
+                
+                minTeiler = np.min(ranges[i])
+                i_range =  ranges[i] / np.max([0.1,minTeiler])
+                
+                newMins2D = np.empty((0,newMins.shape[1]))
+                for entry_ind, entry in enumerate(i_range):
+                    for _ in range(int(entry)):
+                        print newMins.shape, newMins2D.shape
+                        newMins2D = np.append(newMins2D,np.atleast_2d(newMins[entry_ind,:]),0)
+                        
+                        
+                
+                plt.figure()
+                plt.imshow(newMins2D, interpolation='nearest',aspect='auto',cmap=cmap,vmin=0, vmax=1,extent=[0, newMins2D.shape[0], 0, newMins2D.shape[1]])
+                plt.xscale('log')
+                
+                plt.xlabel(params[j][1])
+                plt.ylabel(params[i][1])
+                
+                plt.colorbar()
+                if ranges is not None:
+                    tick_marks = np.arange(1,len(newMins[0]),100)
+                    plt.xticks(tick_marks, ranges[j], rotation=45)
+                    tick_marks = np.arange(len(newMins))
+                    plt.yticks(tick_marks, ranges[i])
+                plt.tight_layout()
+                
+                if pp is not None:
+                    pass
+                    #pp.savefig()
+                #plot_confusion_matrix(cm, gestures, title, cmap)
+        #TODO:plot all dims
     
 
-def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
+def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp, cmap='Blues'):
     minVal = np.min(errs)
     min_ind = np.unravel_index(errs.argmin(), errs.shape)
     
@@ -269,7 +342,7 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp):
         mins = np.delete(totalMins, range(0,i), plotAxis)
         mins = np.delete(mins, range(1,100),plotAxis)
         mins = np.atleast_2d(np.squeeze(mins))
-        plt.imshow(mins, interpolation='nearest',cmap='Blues',vmin=0, vmax=1)
+        plt.imshow(mins, interpolation='nearest',cmap=cmap,vmin=0, vmax=1)
         print mins.shape
         print params[yAxis][1]
         print params[xAxis][1]
@@ -581,8 +654,10 @@ def calcMaxActivityPrediction(prediction_orig, target_orig, treshold, gestureMin
         #prediction[i,:] = np.mean(prediction_orig[i-5:i,:],0)
         j = i
         posSum = np.sum(prediction[j,:][prediction[j,:]>0])
+        #posSum = np.max(prediction[j,:])
         while j < prediction.shape[0] and posSum > treshold[j]:
             posSum = np.sum(prediction[j,:][prediction[j,:]>0])
+            #posSum = np.max(prediction[j,:])
             j +=1
         if j - i > gestureMinLength:               
             start = i

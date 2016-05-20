@@ -83,10 +83,7 @@ def splitBySignals(dataStep):
     segments= []
     for input, target in dataStep:
         targetInt = np.argmax(addNoGestureSignal(target), 1)
-
-        
-        inds= np.append(np.where(targetInt[:-1]!= targetInt[1:]),[len(targetInt)-1])
-        
+        inds= np.where(targetInt[:-1]!= targetInt[1:])[0]
         lastInd = -1
         for ind in inds:
             if targetInt[ind] != np.max(targetInt):
@@ -96,6 +93,12 @@ def splitBySignals(dataStep):
                 tSegement[-1,:]=0
                 segments.append((iSegment,tSegement))
                 lastInd = ind
+        ind = len(targetInt)-1
+        iSegment = input[lastInd+1:ind+1]
+        tSegement = target[lastInd+1:ind+1]
+        tSegement[0,:]=0
+        tSegement[-1,:]=0
+        segments.append((iSegment,tSegement))
     return segments
 
 def shuffleDataStep(dataStep, nFolds):
@@ -204,14 +207,14 @@ def w_in_init_function(output_dim, input_dim):
 
 
 
-#def main(name):
+#def main(name, usedGestures):
 #     pass  
 
 if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})    
     plt.switch_backend('Qt4Agg')
 
-    #name = 'Test'
+    #name = 'test'
     name = input('name')
     normalized = False
     nmse = False
@@ -219,10 +222,10 @@ if __name__ == '__main__':
     usedGestures = [0,1,2,3,4,5,6,7,8,9]
     concFactor = 1
     noiseFactor = 1
-    nFolds = 5
+    nFolds = 4
     shuffle = True
-    learnTreshold = False
-    optDict = 'test'
+    learnTreshold = True
+    optDict = 'bestParas'
     inputFiles = ['nike','julian','nadja','line']
     testFiles = ['stephan']
     
@@ -260,6 +263,8 @@ if __name__ == '__main__':
         ind, t  = DataSet.createData(fileName, inputGestures,usedGestures)
         dataStep.append((ind,t))
         
+    segs = splitBySignals(dataStep)
+
     if(shuffle):
         dataStep = shuffleDataStep(dataStep, nFolds)
     
@@ -288,13 +293,15 @@ if __name__ == '__main__':
         newDataStep.append((ind,t))
     dataStep = newDataStep
             
-            
+        
+   
     data=[dataStep,dataStep]
 
     for iFile in randTestFiles:
         randTestSets.append(createDataSetFromFile(iFile))
     #data = [[b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)], \
     #        [b.getDataForTraining(useFused, useGyro, useAcc, 2),c.getDataForTraining(useFused, useGyro, useAcc, 2),d.getDataForTraining(useFused, useGyro, useAcc, 2)]]
+
 
 
 
@@ -337,9 +344,9 @@ if __name__ == '__main__':
         opt = Oger.evaluation.Optimizer(gridsearch_parameters, Evaluation.calc1MinusF1FromMaxApp)    
         
         
-    #opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=True)
+    opt.scheduler = mdp.parallel.ProcessScheduler(n_processes=2, verbose=False)
     #opt.scheduler = mdp.parallel.pp_support.LocalPPScheduler(ncpus=2, max_queue_length=0, verbose=True)
-    #mdp.activate_extension("parallel")
+    mdp.activate_extension("parallel")
     opt.grid_search(data, flow, n_folds=nFolds, cross_validate_function=Oger.evaluation.n_fold_random)
     
 
@@ -364,11 +371,11 @@ if __name__ == '__main__':
     normAxis = -1
     
     for node , param in opt.parameters:
-        if param == 'inputSignals':
+        if param == 'spectral_radius':
             inputSignalAxis = i
-        elif param == 'input_scaling':
+        elif param == 'leak_rate':
             inputScalingAxis = i
-        elif param == 'useNormalized':
+        elif param == 'ridge_param':
             normAxis = i
         i =i+1
     
@@ -380,7 +387,7 @@ if __name__ == '__main__':
     bestFlow = opt.get_optimal_flow(True)
     bestFlowUntrained = bestFlow.copy()
     
-    
+
     bestFlow.train(data)
     
     
@@ -591,6 +598,7 @@ if __name__ == '__main__':
     result.append('=HYPERLINK(\"'+pdfFilePath+'\")')
     result.append('=HYPERLINK(\"'+npzFilePath+'\")')
     result.append('=HYPERLINK(\"'+bestFlowPath+'\")')
+    result.extend(['optDict',optDict])
     
     if name != 'test':
         writeToReportFile(result)
@@ -611,7 +619,7 @@ if __name__ == '__main__':
 
     #return bestFlow, opt
     #return fig1, fig2
-    #return f1maxAppScores
+    #return opt.get_minimal_error()[0], np.mean(f1Cross), np.mean(accuracyCross),f1maxAppScores,f1maxAppBestPossibleScores,accuracies,levs_pp
 
 def bla():
 #if __name__ == '__main__':
@@ -623,7 +631,30 @@ def bla():
     #print '3 done' 
     #main('a_NMSE_FA',True,False,True)
     #print '4 done'
-
+    trainErrs = []
+    trainF1s = []
+    trainAccs = []
+    testF1s = []
+    testBestPosF1s = []
+    testAccs = []
+    testLevs = []
+    
+    for _ in range(5):
+        trainErr ,trainF1 ,trainAcc ,testF1 ,testBestPosF1 ,testAcc,testLev =main('withinClassTest',[0,1,2,3])
+        trainErrs.append(trainErr)
+        trainF1s .append(trainF1)
+        trainAccs .append(trainAcc)
+        testF1s .append(testF1)
+        testBestPosF1s .append(testBestPosF1)
+        testAccs .append(testAcc)
+        testLevs .append(testLev)
+        
+    results = [trainErrs,trainF1s,trainAccs, testF1s,testBestPosF1s,testAccs,testLevs]
+    results = map(np.atleast_2d,results)
+    results = map(np.squeeze,results)
+    results = map(np.atleast_2d,results)
+    resultsConc = np.concatenate(results,0).T
+    print np.mean(resultsConc)
     #main('noise_noconc_julian',['line','stephan','nike','nadja'],['julian'])
     #main('noise_noconc_nadja',['julian','line','stephan','nike'],['nadja'])
     #main('noise_noconc_nike',['nadja','julian','line','stephan'],['nike'])
@@ -637,7 +668,7 @@ def bla():
     #f1s = []
     #for _ in range(4):
     #    f1s.append(main('test'))
-    main('test')
+    #main('test')
     #main('same',1)
     #main('test',1)
 def bla(): 

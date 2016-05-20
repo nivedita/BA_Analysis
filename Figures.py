@@ -6,11 +6,14 @@ import matplotlib.cm
 from scipy.signal.windows import gaussian
 import sklearn.metrics
 from DataSet import createDataSetFromFile
+from Utils import getProjectPath
+from Evaluation import getSpecificColorMap, plotMinErrors, plotAlongAxisErrors,\
+    plotMinErrorsSqueezed
 
 
 def createTargetShapeDelayFigure():
     gestureLen = 20
-    gestureSig = np.concatenate([np.zeros((10,3)),np.random.normal(size=(gestureLen,3)),np.zeros((10,3))],0)
+    gestureSig = np.concatenate([np.zeros((10,3)),np.random.normal(size=(gestureLen,3))*np.atleast_2d(gaussian(20, 3, 0)*2).T,np.zeros((10,3))],0)
     target = np.concatenate([np.zeros((10,1)),np.ones((gestureLen,1)),np.zeros((10,1))],0)
     target_gaus = np.concatenate([np.zeros((5,1)),np.atleast_2d(gaussian(gestureLen+10,5)).T,np.zeros((5,1))],0)
     target_delayed = np.concatenate([np.zeros((28,1)),np.ones((5,1)),np.zeros((7,1))],0)
@@ -23,12 +26,15 @@ def createTargetShapeDelayFigure():
     ax[0].plot(target,label='target',c='red',linewidth=2)
     ax[0].fill_between(np.arange(0,40),0,target.squeeze(),facecolor='red',alpha=0.5)
     ax[0].set_title('(a)')
+    ax[0].set_xlabel('timestep')
     ax[1].plot(target_gaus,label='target',c='red',linewidth=2)
     ax[1].fill_between(np.arange(0,40),0,target_gaus.squeeze(),facecolor='red',alpha=0.5)
     ax[1].set_title('(b)')
+    ax[1].set_xlabel('timestep')
     ax[2].plot(target_delayed,label='target',c='red',linewidth=2)
     ax[2].fill_between(np.arange(0,40),0,target_delayed.squeeze(),facecolor='red',alpha=0.5)
     ax[2].set_title('(c)')
+    ax[2].set_xlabel('timestep')
     #plt.legend(bbox_to_anchor=(1., 1.05), loc=1, borderaxespad=0.)
     plt.tight_layout()
     projectPath = 'C:\Users\Steve\Documents\Uni\BAThesis\\src\\targetShapeDelay2.pdf'
@@ -41,7 +47,7 @@ def createTargetShapeDelayFigure():
 
 def createEvaluationProblem():
     gestureLen = 20
-    target = np.concatenate([np.ones((gestureLen,1)),np.zeros((10,1)),np.ones((gestureLen,1)),np.zeros((40,1))],0)
+    target = np.concatenate([np.ones((gestureLen+1,1)),np.zeros((9,1)),np.ones((gestureLen,1)),np.zeros((40,1))],0)
     target2 = np.concatenate([np.zeros((70,1)),np.ones((gestureLen,1))],0)
     pred1 = np.concatenate([np.ones((8,1)),np.zeros((5,1)),np.ones((8,1)),np.zeros((69,1))],0)
     pred2 = np.concatenate([np.zeros((7,1)),np.ones((7,1)),np.zeros((66,1)),np.ones((10,1))],0)
@@ -81,20 +87,30 @@ def createEvaluationProblem():
     plt.annotate('FP',xy=(14,-0.1))
     plt.plot([17,10],[-0.75,0.75],linewidth=3, color='black')
     
-    plt.annotate('TP',xy=(25,-0.1))
-    plt.plot([30,25],[-0.75,0.75],linewidth=3, color='black')
     
+    plt.annotate('TP',xy=(34,-0.1))
+    plt.plot([50,25],[-0.75,0.75],linewidth=3, color='black')
     
-    plt.annotate('FN',xy=(37,-0.1))
-    plt.plot([40,40],[-0.75,0.75],linewidth=3, color='black')
+    plt.annotate('FN',xy=(46,-0.1))
+    plt.plot([50,40],[-0.75,0.75],linewidth=3, color='black')
     
-    plt.annotate('TP',xy=(57.5,-0.1))
-    plt.plot([60,60],[-0.75,0.75],linewidth=3, color='black')
+    plt.annotate('TP',xy=(55.5,-0.1))
+    plt.plot([50,60],[-0.75,0.75],linewidth=3, color='black')
+    
     
     plt.annotate('TP',xy=(83.5,-0.1))
     plt.plot([85,80],[-0.75,0.75],linewidth=3, color='black')
     
+    ax = plt.gca()
+    ax.text( 2.5, -1.3,str(1),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
+    ax.text( 9.5, -1.3,str(2),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
+    ax.text(15  , -1.3,str(3),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
+    ax.text(50  , -1.3,str(4),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
+    ax.text(84.5, -1.3,str(5),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
+    ax.text(39.5,  1.2,str(6),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
+    ax.text(59.5,  1.2,str(7),bbox=dict(facecolor='none', edgecolor='black', boxstyle='circle,pad=0.5'))
     
+    plt.xlabel('time step')
     
     plt.yticks([-0.75,0,0.75])
     plt.setp(plt.gca(), 'yticklabels', ['Prediction','Mapping','Target'])
@@ -102,6 +118,7 @@ def createEvaluationProblem():
     plt.ylim(-1.5,1.5)
     plt.xlim(0,120)
     plt.legend()
+    plt.tight_layout()
     projectPath = 'C:\Users\Steve\Documents\Uni\BAThesis\\src\\classificationProb.pdf'
     pp = PdfPages(projectPath)
     pp.savefig()
@@ -196,6 +213,62 @@ def bla():
         print 
 
 
+def evaluateNPZ(npzFile):
+    pp = PdfPages(getProjectPath()+"error_space_"+npzFile+".pdf")
+    a = np.load(getProjectPath()+npzFile)
+    plotMinErrors(a['errors'], a['params'], a['paraRanges'], pp, getSpecificColorMap())
+    
+    i = 0
+    inputSignalAxis = -1
+    inputScalingAxis = -1
+    normAxis = -1
+    
+    for node, param in a['params']:
+        if param == 'spectral_radius':
+            inputSignalAxis = i
+        elif param == 'output_dim':
+            inputScalingAxis = i
+        elif param == 'ridge_param':
+            normAxis = i
+        i =i+1
+    
+    plotAlongAxisErrors(a['errors'], a['params'], a['paraRanges'], normAxis, inputSignalAxis, inputScalingAxis, pp, getSpecificColorMap())
+    pp.close()
+    #plt.close('all')
+
+def plotErrorResSize():
+    matplotlib.rcParams.update({'font.size': 25})
+    
+    npzFile = '2016-04-28-09-57_bigRunOnlySnap.npz'
+    npz2 = '2016-04-28-15-18_bigRunOnlySnap.npz'
+    projectPath = 'C:\Users\Steve\Documents\Uni\BAThesis\\src\\errorResSize.pdf'
+    pp = PdfPages(projectPath)
+    a = np.load(getProjectPath()+npzFile)
+    errors = a['errors']
+    errors = np.mean(errors,2).squeeze()
+    
+    b = np.load(getProjectPath()+npz2)
+    errors2 = b['errors']
+    errors2 = np.mean(errors2,2).squeeze()
+    
+    
+    plt.figure(figsize=(10,7.5))
+    plt.plot(errors, 'o', linestyle='-', linewidth=3, label='ridge para = 0.01')
+    #plt.plot(errors2, 'o', linestyle='-', linewidth=3, label='ridge para = 0.1')
+    
+    plt.grid()
+    plt.minorticks_on()
+    plt.grid(which='minor', axis='y')
+    plt.xlabel('Reservoir size')
+    ticks = np.arange(0, 8)
+    labels = [25,50,100,200,400,800,1600,3200]
+    plt.xticks(ticks, labels)
+    plt.ylabel('Validation error')
+    plt.ylim(0,1)
+    plt.tight_layout()
+    pp.savefig()
+    pp.close()
+    #plt.close('all')
 
 if __name__ == '__main__':
     matplotlib.rcParams.update({'font.size': 20})

@@ -23,6 +23,7 @@ def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestur
     else:    
         learnedTreshold = np.ones((t_prediction.shape[1],1))*bestF1ScoreTreshold
         t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,bestF1ScoreTreshold,10)
+        #t_maxApp_prediction = calcMaxActivityPrediction(t_prediction,t_target,0.4,1)
     #t_prediction = t_maxApp_prediction
     t_pp_prediction = postProcessPrediction(t_prediction, tresholds)
 
@@ -43,12 +44,13 @@ def evaluateTestFile(iFile,inputGestures,usedGestures, gestureNames, totalGestur
     cmap = mpl.cm.jet
     for i in range(t_prediction.shape[1]):
         plt.plot(t_prediction[:,i],c=cmap(float(i)/t_prediction.shape[1]),label=totalGestureNames[usedGestures[i]],linewidth=3)
-        plt.fill_between(range(len(t_prediction)), 1.4, 1.6, where=testData[1][:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
-        plt.fill_between(range(len(t_prediction)), 1.2, 1.4, where=t_prediction[:,i]==np.max(addTresholdSignal(t_prediction,0.4),1),facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
-        plt.fill_between(range(len(t_prediction)), 1.0, 1.2, where=t_maxApp_prediction[:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)    
+        plt.fill_between(range(len(t_prediction)), np.max(t_prediction,1), np.squeeze(np.ones((len(t_prediction),1))), where=testData[1][:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.3)
+        #plt.fill_between(range(len(t_prediction)), 1.4, 1.6, where=testData[1][:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
+        #plt.fill_between(range(len(t_prediction)), 1.2, 1.4, where=t_prediction[:,i]==np.max(addTresholdSignal(t_prediction,0.4),1),facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)
+        #plt.fill_between(range(len(t_prediction)), 1.0, 1.2, where=t_maxApp_prediction[:,i]==1,facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.7)    
         plt.fill_between(range(len(t_prediction)), 0, t_prediction[:,i], where=t_prediction[:,i]==np.max(t_prediction,1), facecolor=cmap(float(i)/t_prediction.shape[1]), alpha=0.5)
     if learnTreshold:
-        plt.plot(learnedTreshold,c='black',label='treshold',linewidth=2)
+        plt.plot(learnedTreshold,c='black',label='treshold',linewidth=3)
         
     for limCounter in range(5):
         plt.annotate('Target', xy=(limCounter*1000+1,1.45))
