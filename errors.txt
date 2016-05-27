@@ -1,0 +1,12 @@
+    finished task no. 8311
+unpickling a task caused an exception in a process:
+
+Traceback (most recent call last):
+  File "/informatik2/students/home/2tietz/virtualEnv2/local/lib/python2.7/site-packages/mdp/parallel/process_schedule.py", line 218, in _process_run
+  File "/usr/lib/python2.7/pickle.py", line 1378, in load
+Bus-Zugriffsfehler
+(virtualEnv2)2tietz@ccblade11:~/pythonProjects/BA_Analysis2/Test_BA_Analysis$ task 8314 caused exception in process:
+task 8313 caused exception in process:
+task 8315 caused exception in process:
+task 8316 caused exception in process:
+task 8317 caused exception in process:
