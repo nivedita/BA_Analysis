@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import *
-from gettext import ngettext
 from matplotlib.backends.backend_pdf import PdfPages
 from scipy.signal._peak_finding import argrelextrema
 import sklearn
@@ -15,7 +14,423 @@ from matplotlib.colors import LinearSegmentedColormap
 
 
 
+#========================================================================
+# Postprocess prediction signal to create segments assigned to highest activity neuron. 
+# Segments are generated while the sum of all output neurons, that do not
+# predict zero, is above the treshold.
+# All timesteps within one segment are labeled as belonging to the neuron
+# that had the highest overall activity during the segment.
+# prediction_orig: raw classifier output
+# target_orig: not requiered
+# treshold: minimum overall acitivity to activate classifier
+# gestureMinLength: minimum gesture length to activate classifier
+#
+#
+# returns: binary matrix of same shape is prediction_orig but containing
+# the segmented information.
+#========================================================================
+def calcMaxActivityPrediction(prediction_orig, target_orig, treshold, gestureMinLength=1):
+    prediction = np.copy(prediction_orig)
+    i = 0
+    start = 0
+    end = 0
+    
+    if not type(treshold) is np.ndarray:
+        treshold = np.ones((prediction_orig.shape[0],1))*treshold
+        
+    
+    while i < prediction.shape[0]: #iterate over all timesteps
+        j = i 
+        posSum = np.sum(prediction[j,:][prediction[j,:]>0]) #sum up all neuron output above zero
+        while j < prediction.shape[0] and posSum > treshold[j]: # while the sum of all output neurons is above the treshold shift j 
+            posSum = np.sum(prediction[j,:][prediction[j,:]>0])
+            j +=1 #after this loop, j is the end of the found segment
+            
+        if j - i > gestureMinLength: #if the segments (from i to j) is longer than the minumum number of timesteps       
+            start = i #i is segment start
+            end = j #j is segment end
+            sums = np.sum(prediction[start:end,:],0) #sum up all output neuron activities
+            predicted_class = np.argmax(sums)
+            prediction[start:end+1,:]= 0 # set all timesteps within segment to zero
+            prediction[start:end,predicted_class]= 1 # assign all timesteps to the output neuron with highest activity
+        else:
+            prediction[i:j+1,:]= 0 #if the segement is too short, remove all predictions
+        i = j + 1
+    return prediction
 
+
+
+#===============================================================================
+# This is the actual mapping algorithm.
+# It reduces prediction and target to lists of segments, then tries to find an
+# optimal mapping following the rules described in the thesis.
+# prediction: binary prediction matrix
+# target: binary ground truth target matrix
+# threshold: for no gesture signal
+# plot: indicates wether plots of mapping shall be generated
+#
+#
+# returns two lists: predicted label and true label. Segments are NOT ordered anymore. 
+#===============================================================================
+def calcInputSegmentSeries(prediction, target, treshold, plot=False):
+    prediction = addTresholdSignal(prediction, treshold) #add threshold to prediction represent no gesture.
+    target = addNoGestureSignal(target) #add no gesture to target as well
+    predictionInt = np.argmax(prediction, 1) #convert binary prediction matrix to list of intergers
+    targetInt = np.argmax(target,1) #convert binary target matrix to list of integers
+    
+    inds = [0] #search for beginning and end of segments (everytime the values of predictionInt changes)
+    for i in range(1,len(predictionInt)):
+        if predictionInt[i-1] != predictionInt[i]:
+            inds.append(i)
+    inds.append(len(prediction)-1)
+    
+    
+    if plot :
+        plt.figure()
+        cmap = mpl.cm.gist_earth
+        for i in range(prediction.shape[1]):
+            plt.plot(prediction[:,i],c=cmap(float(i)/(prediction.shape[1])))
+        
+        lastI = 0
+        for i in inds:
+            #plt.plot([i,i],[-2,2], c='black')
+            x = np.arange(lastI,i+1)
+            y1 = 0
+            y2 = prediction[x,predictionInt[lastI]]
+            #print predictionInt[i], prediction.shape[1], float(predictionInt[i]) / prediction.shape[1]
+            plt.fill_between(x, y1, y2, facecolor=cmap(float(predictionInt[lastI])/(prediction.shape[1])), alpha=0.5)
+            lastI = i
+        plt.plot(target)
+    
+    
+    
+    #create a binary array indicating which datasteps have been mapped
+    mapped = np.zeros(targetInt.shape)
+    
+    #===============================================================================
+    # Those two arrays will later contain the predicted and true label of each segment
+    #===============================================================================
+    segmentPredicted = []
+    segmentTarget = []
+    
+    # first iterate over the whole array and map as many true positives as positive
+    # double detections will also be mapped in this iteration
+    for i in range(1,len(inds)): 
+        start = inds[i-1]
+        end = inds[i]
+        targetSegment = targetInt[start:end]
+        predictedClass = predictionInt[start]
+        if predictedClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
+            #check for tp case
+            tpInds = np.add(np.where(targetSegment==predictedClass),start)
+            #print tpInds, tpInds.size
+            if not tpInds.size==0 and not np.max(mapped[tpInds])!=0: #segment has not been mapped
+                segmentPredicted.append(predictedClass) #add a segment with label predictedClass
+                segmentTarget.append(predictedClass)    #true label is also predictedClass
+                if plot:    
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='blue')       
+                mapSegment(mapped, targetInt, predictedClass, start) #map the area of the segment, as true positive has been detected
+            elif not tpInds.size==0 and np.max(mapped[tpInds])!=0: #segment has been mapped already
+                segmentPredicted.append(predictedClass)     #add a segment with predicted class
+                segmentTarget.append(prediction.shape[1]-1) #add no gesture label as true label for this segment
+                if plot: 
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='red')
+        
+            
+
+            
+    #if plot:           
+    #    plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
+    
+            
+    # check for wrong gesture segments and false positives                  
+    for i in range(1,len(inds)): 
+        start = inds[i-1]
+        end = inds[i]
+        targetSegment = targetInt[start:end]
+        predictedClass = predictionInt[start]
+        #check for tp case
+        tpInds = np.add(np.where(targetSegment==predictedClass),start)
+        if predictedClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
+            if tpInds.size==0: 
+                bins = np.bincount(targetSegment,None,prediction.shape[1])
+                ################################################################
+                #uncomment this to allow each target to be classified only once
+                #if np.any(bins[:-1]) and np.max(mapped[start:end]) == 0: 
+                ################################################################
+                if np.any(bins[:-1]): #eine andere geste findet statt 
+                    trueClass = np.argmax(bins[:-1])
+                    mapSegment(mapped, targetInt, trueClass, start)
+                else:
+                    trueClass= prediction.shape[1]-1
+                    
+                segmentPredicted.append(predictedClass) #add predicted class
+                segmentTarget.append(trueClass)         #add actual class
+                
+                if plot: 
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='green')
+                    plt.annotate(str(predictedClass)+'/'+str(trueClass), xy=(start,0))
+                #print targetSegment, bins, predictedClass, trueClass 
+                
+
+    
+    
+    # search for target signals that have not been mapped (false negatives)
+    targetInds=[]
+    targetInds.append(0)
+    for i in range(1,len(targetInt)):
+        if targetInt[i-1] != targetInt[i]:
+            targetInds.append(i)
+    targetInds.append(len(prediction)-1)
+    
+    for i in range(1,len(targetInds)):
+        start = targetInds[i-1]
+        end = targetInds[i]
+        targetSegment = targetInt[start:end]
+        predictedClass = prediction.shape[1]-1
+        trueClass = targetInt[start]
+        
+        if trueClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
+            if mapped[start]==0:
+                #print 'trueClass ',trueClass, ' pred ',predictedClass
+            
+                segmentPredicted.append(predictedClass)
+                segmentTarget.append(trueClass) 
+                mapSegment(mapped, targetInt, trueClass, start)
+                if plot: 
+                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='yellow')
+        else:
+            segmentPredicted.append(prediction.shape[1]-1)
+            segmentTarget.append(prediction.shape[1]-1)
+    #if plot:           
+        #plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
+    
+    
+
+    pred = np.array(segmentPredicted)
+    targ = np.array(segmentTarget)
+    return pred, targ
+
+
+
+
+#============================================================================
+# Adds a constant treshold signal to the given input data 
+#============================================================================
+def addTresholdSignal(prediction, treshold):
+    return np.append(prediction, np.ones((prediction.shape[0],1))*treshold, 1)
+
+
+
+#===============================================================================
+# Adds the no gesture signal as new collumn to the targets.
+# No gesture signal is 1 when all other signals are 0.
+#===============================================================================
+def addNoGestureSignal(target):
+    inds = np.max(target,1)==0
+    inds = np.atleast_2d(inds.astype('int')).T
+    return np.append(target, inds, 1)
+
+
+
+
+
+#===============================================================================
+# Plots a given confusion matrix
+#===============================================================================
+def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
+    fig = plt.figure(figsize=(15,15))
+    maxVal = np.max(cm.flatten()[:-1])
+    plt.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=maxVal)
+    plt.title(title)
+    plt.colorbar()
+    if gestures is not None:
+        tick_marks = np.arange(len(gestures))
+        plt.xticks(tick_marks, gestures, rotation=45)
+        plt.yticks(tick_marks, gestures)
+    
+
+    ind_array = np.arange(0, len(cm), 1)
+    x, y = np.meshgrid(ind_array, ind_array)
+
+    for x_val, y_val in zip(x.flatten(), y.flatten()):
+        c = str(cm[y_val,x_val])
+        plt.text(x_val, y_val, c, va='center', ha='center')
+    
+    plt.tight_layout()
+    plt.ylabel('True label')
+    plt.xlabel('Predicted label')
+    
+    return fig
+
+
+
+#===============================================================================
+# Create the Recall, Precision, F1Score plot.
+# Also returns the treshold for which the best f1 score was achieved.
+# prediction: classifier output
+# target: true output
+#===============================================================================
+def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestureLength=10):
+    
+    gestureNames = ['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud','no gesture']
+    lines = []
+    
+    #Tested area ranges from 0 to maxTreshold, tests are performed every stepsize
+    maxTreshold = 2
+    stepsize = 0.01
+    
+    
+    tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
+    fprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
+    f1score = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
+    
+    # Evaluate prediction with varying tresholds.
+    for ind, currentTreshold in enumerate(np.arange(0,maxTreshold,stepsize)):        
+        if not postProcess:
+            pred_new = calcMaxActivityPrediction(prediction, target, currentTreshold, gestureLength)
+            pred, targ= calcInputSegmentSeries(pred_new, target, 0.5, False)
+        else:
+            pred, targ= calcInputSegmentSeries(prediction, target, currentTreshold, False)
+        conf = sklearn.metrics.confusion_matrix(targ,pred)
+        #for classNr in range(prediction.shape[1]+1):
+        #    tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)
+        #    fprs[ind,classNr] = calcFPRFromConfMatr(conf, classNr)
+        tprs[ind] = sklearn.metrics.recall_score(targ,pred,average=None)
+        fprs[ind] = sklearn.metrics.precision_score(targ,pred,average=None)
+        f1score[ind] = sklearn.metrics.f1_score(targ, pred, average=None)
+    
+    matplotlib.rcParams.update({'font.size': 20})
+    
+    fig, axes = plt.subplots(3, 1, True, figsize=(20,20))
+    fig.tight_layout(h_pad=2)
+    fig.suptitle(title)
+    axes[0].set_title('Recall')
+    axes[0].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[0].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[0].set_xlabel('Treshold')
+    cmap = mpl.cm.jet
+    for i in range(prediction.shape[1]):
+        lin, = axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
+        lines.append(lin)
+    lin, = axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
+    axes[0].plot(np.mean(tprs,1), c='Black', linestyle='--', linewidth=10, label='Mean')
+    lines.append(lin)
+    axes[0].set_ylim(-0.05,1.05)        
+    
+    
+    axes[1].set_title('Precision')
+    axes[1].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[1].set_xlabel('Treshold')
+    for i in range(prediction.shape[1]):
+        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]),  label=gestureNames[i],linewidth=2)
+    axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
+    axes[1].plot(np.mean(fprs,1), c='Black', linestyle='--', linewidth=10, label='Mean')
+    axes[1].set_ylim(-0.05,1.05)        
+    
+    
+    axes[2].set_title('F1Score')
+    axes[2].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+    axes[2].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+    axes[2].set_xlabel('Treshold')
+    for i in range(prediction.shape[1]):
+        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
+    axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture',linewidth=2)
+    axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean')
+    axes[2].set_ylim(-0.05,1.05)        
+    
+#    axes[3].set_title('F1Score and Levenshtein Error')
+#    axes[3].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
+#    axes[3].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
+#    axes[3].set_xlabel('Treshold')
+#    lin, = axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
+#    lines.append(lin)
+#    gestureNames.append('Mean F1 Score')
+#    lin, = axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
+#    lines.append(lin)
+#    gestureNames.append('Levenshtein Error')
+#    axes[3].set_ylim(-0.05,2.05)        
+    
+    fig.legend( lines, gestureNames, loc = '3',ncol=1, labelspacing=0. )
+    
+    tresholds = np.argmax(f1score, 0) * stepsize
+    bestF1Score = np.max(np.mean(f1score,1))
+    bestF1ScoreTreshold = np.argmax(np.mean(f1score,1))*stepsize
+    
+    if postProcess:
+        t_newPred = np.copy(prediction)
+        for i in range(len(tresholds)-1):
+            inds = t_newPred[:,i] < tresholds[i]
+            t_newPred[:,i][inds]=0
+        pred, targ= calcInputSegmentSeries(t_newPred, target, 0.05, False)
+        conf = sklearn.metrics.confusion_matrix(targ,pred)
+        f1score = sklearn.metrics.f1_score(targ, pred, average=None)
+        bestF1AfterPostProcess = np.mean(f1score)
+        print conf, bestF1Score, bestF1AfterPostProcess
+    print 'Best found f1 score', bestF1Score, 'at treshold:', bestF1ScoreTreshold
+    return tresholds, bestF1Score, bestF1ScoreTreshold
+
+
+
+
+    
+
+#============================================================================
+# Plot minimum errors along all dimensions
+# errs: error space as generated by optimizer
+# params: list of parameters
+# ranges: list of ranges for all parameters
+# pp: the pdf file writer
+#============================================================================
+def plotMinErrors(errs, params, ranges, pp, cmap='Blues'):
+    minVal = np.min(errs)
+    min_ind = np.unravel_index(errs.argmin(), errs.shape)
+    for i in range(0,len(min_ind)):
+        for j in range(i,len(min_ind)):
+            if(j != i and errs.shape[i] > 1 and errs.shape[j] > 1 and \
+                params[i][1] != '_instance' and params[j][1] != '_instance' ):
+                minAxes = range(0,len(min_ind))
+                minAxes.remove(i)
+                minAxes.remove(j)
+                mins = np.min(errs,tuple(minAxes))
+                plt.figure()
+                plt.imshow(mins, interpolation='nearest',cmap=cmap,vmin=0, vmax=1)
+                plt.xlabel(params[j][1])
+                plt.ylabel(params[i][1])
+                
+                plt.colorbar()
+                if ranges is not None:
+                    tick_marks = np.arange(len(mins[0]))
+                    plt.xticks(tick_marks, ranges[j], rotation=45)
+                    tick_marks = np.arange(len(mins))
+                    plt.yticks(tick_marks, ranges[i])
+                plt.tight_layout()
+                
+                if pp is not None:
+                    pp.savefig()
+
+
+#===============================================================================
+# Creates a more distinctive colormap.
+#===============================================================================
+def getSpecificColorMap():
+    cdict = {'red': ((0.0,  1.0, 1.0),
+                     (0.05,  1.0, 1.0),
+                     (0.5,  0.0, 0.0),
+                     (1.0,  0.0, 0.0)),
+
+            'green':((0.0,  1.0, 1.0),
+                     (0.05,  1.0, 1.0),
+                     (1.0,  0.0, 0.0)),
+
+            'blue': ((0.0,  1.0, 1.0),
+                     (0.05,  1.0, 1.0 ),
+                     (0.5,  1.0, 1.0),
+                     (1.0,  0.0, 0.0))}
+    blue_red1 = LinearSegmentedColormap('BlueRed1', cdict)
+    return blue_red1
+    
 
 def mergePredictions(predictions, addTreshold=False, treshold=0.0, plot=False):
     if addTreshold:
@@ -97,7 +512,10 @@ def calcAccuracyFromMaxApp(input_signal,target_signal, treshold = 0.5, gestureLe
     pred_MaxApp, targ_MaxApp = calcInputSegmentSeries(t_maxApp_prediction, target_signal, 0.5)
     return sklearn.metrics.accuracy_score(targ_MaxApp,pred_MaxApp)
         
-    
+   
+#==============================================================================
+# Smoothes input signal by applying a floating average.
+#==============================================================================
 def calcFloatingAverage(input_signal,target_signal):
     offset = 5
     floatingSum = np.zeros(input_signal.shape)
@@ -108,30 +526,8 @@ def calcFloatingAverage(input_signal,target_signal):
 def calcF1OverFloatingAverage(input_signal,target_signal):
     return calc1MinusF1Average(calcFloatingAverage(input_signal, target_signal),target_signal)
 
-def plot_confusion_matrix(cm, gestures=None,title='Confusion matrix', cmap=cm.Blues):
-    fig = plt.figure(figsize=(15,15))
-    maxVal = np.max(cm.flatten()[:-1])
-    plt.imshow(cm, interpolation='nearest', cmap=cmap, vmin=0, vmax=maxVal)
-    plt.title(title)
-    plt.colorbar()
-    if gestures is not None:
-        tick_marks = np.arange(len(gestures))
-        plt.xticks(tick_marks, gestures, rotation=45)
-        plt.yticks(tick_marks, gestures)
-    
 
-    ind_array = np.arange(0, len(cm), 1)
-    x, y = np.meshgrid(ind_array, ind_array)
 
-    for x_val, y_val in zip(x.flatten(), y.flatten()):
-        c = str(cm[y_val,x_val])
-        plt.text(x_val, y_val, c, va='center', ha='center')
-    
-    plt.tight_layout()
-    plt.ylabel('True label')
-    plt.xlabel('Predicted label')
-    
-    return fig
 
 ###
 ### counts max of last n steps
@@ -145,14 +541,8 @@ def createMaxTargetSignal(t_prediction, treshold):
     for i in range(filterLength,t_prediction.shape[0]):
         t_max[i] = np.argmax(np.bincount(np.argmax(t_prediction[i-filterLength:i,:], 1)))
     return t_max
-    
-def addTresholdSignal(prediction, treshold):
-    return np.append(prediction, np.ones((prediction.shape[0],1))*treshold, 1)
+   
 
-def addNoGestureSignal(target):
-    inds = np.max(target,1)==0
-    inds = np.atleast_2d(inds.astype('int')).T
-    return np.append(target, inds, 1)
     
 
 def calc1MinusConfusionFromMaxTargetSignal(input_signal,target_signal, vis=False):
@@ -221,52 +611,8 @@ def plotMinErrorsToFIle(opt):
 
    
 
-   
-def getSpecificColorMap():
-    cdict = {'red': ((0.0,  1.0, 1.0),
-                     (0.05,  1.0, 1.0),
-                     (0.5,  0.0, 0.0),
-                     (1.0,  0.0, 0.0)),
 
-            'green':((0.0,  1.0, 1.0),
-                     (0.05,  1.0, 1.0),
-                     (1.0,  0.0, 0.0)),
 
-            'blue': ((0.0,  1.0, 1.0),
-                     (0.05,  1.0, 1.0 ),
-                     (0.5,  1.0, 1.0),
-                     (1.0,  0.0, 0.0))}
-    blue_red1 = LinearSegmentedColormap('BlueRed1', cdict)
-    return blue_red1
-       
-def plotMinErrors(errs, params,ranges,pp, cmap='Blues'):
-    minVal = np.min(errs)
-    min_ind = np.unravel_index(errs.argmin(), errs.shape)
-    for i in range(0,len(min_ind)):
-        for j in range(i,len(min_ind)):
-            if(j != i and errs.shape[i] > 1 and errs.shape[j] > 1 and \
-                params[i][1] != '_instance' and params[j][1] != '_instance' ):
-                minAxes = range(0,len(min_ind))
-                minAxes.remove(i)
-                minAxes.remove(j)
-                mins = np.min(errs,tuple(minAxes))
-                plt.figure()
-                plt.imshow(mins, interpolation='nearest',cmap=cmap,vmin=0, vmax=1)
-                plt.xlabel(params[j][1])
-                plt.ylabel(params[i][1])
-                
-                plt.colorbar()
-                if ranges is not None:
-                    tick_marks = np.arange(len(mins[0]))
-                    plt.xticks(tick_marks, ranges[j], rotation=45)
-                    tick_marks = np.arange(len(mins))
-                    plt.yticks(tick_marks, ranges[i])
-                plt.tight_layout()
-                
-                if pp is not None:
-                    pp.savefig()
-                #plot_confusion_matrix(cm, gestures, title, cmap)
-        #TODO:plot all dims
  
 
 def plotMinErrorsSqueezed(errs, params,ranges,pp, cmap='Blues'):
@@ -369,7 +715,7 @@ def plotAlongAxisErrors(errs, params,ranges,plotAxis, xAxis, yAxis, pp, cmap='Bl
         if pp is not None:
             pp.savefig()
                 
-    
+
 def showROC(prediction, target):
     nGestures = target.shape[1]
 
@@ -446,101 +792,6 @@ def calcFPRFromConfMatr(conf, classNr):
     tn = np.sum(conf)-np.sum(conf[classNr,:])-np.sum(conf[:,classNr])+conf[classNr,classNr]
     return float(fp)/(fp+tn)
 
-def calcTPFPForThresholds(prediction, target, title='', postProcess=False, gestureLength=10):
-    
-    gestureNames = ['left','right','forward','backward','bounce up','bounce down','turn left','turn right','shake lr','shake ud','no gesture']
-    lines = []
-    
-    maxTreshold = 2
-    stepsize = 0.01
-    tprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
-    fprs = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
-    f1score = np.zeros((int(maxTreshold*(1/stepsize)),prediction.shape[1]+1))
-    
-    for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):        
-        if not postProcess:
-            pred_new = calcMaxActivityPrediction(prediction, target, i, gestureLength)
-            pred, targ= calcInputSegmentSeries(pred_new, target, 0.5, False)
-        else:
-            pred, targ= calcInputSegmentSeries(prediction, target, i, False)
-        conf = sklearn.metrics.confusion_matrix(targ,pred)
-        #for classNr in range(prediction.shape[1]+1):
-        #    tprs[ind,classNr] = calcTPRFromConfMatr(conf, classNr)
-        #    fprs[ind,classNr] = calcFPRFromConfMatr(conf, classNr)
-        tprs[ind] = sklearn.metrics.recall_score(targ,pred,average=None)
-        fprs[ind] = sklearn.metrics.precision_score(targ,pred,average=None)
-        f1score[ind] = sklearn.metrics.f1_score(targ, pred, average=None)
-    
-    matplotlib.rcParams.update({'font.size': 20})
-    
-    fig, axes = plt.subplots(3, 1, True, figsize=(20,20))
-    fig.tight_layout(h_pad=2)
-    fig.suptitle(title)
-    axes[0].set_title('Recall')
-    axes[0].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
-    axes[0].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
-    axes[0].set_xlabel('Treshold')
-    cmap = mpl.cm.jet
-    for i in range(prediction.shape[1]):
-        lin, = axes[0].plot(tprs[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
-        lines.append(lin)
-    lin, = axes[0].plot(tprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
-    axes[0].plot(np.mean(tprs,1), c='Black', linestyle='--', linewidth=10, label='Mean')
-    lines.append(lin)
-    axes[0].set_ylim(-0.05,1.05)        
-    
-    
-    axes[1].set_title('Precision')
-    axes[1].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
-    axes[1].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
-    axes[1].set_xlabel('Treshold')
-    for i in range(prediction.shape[1]):
-        axes[1].plot(fprs[:,i],c=cmap(float(i)/prediction.shape[1]),  label=gestureNames[i],linewidth=2)
-    axes[1].plot(fprs[:,prediction.shape[1]], c='black', label='No gesture',linewidth=2)
-    axes[1].plot(np.mean(fprs,1), c='Black', linestyle='--', linewidth=10, label='Mean')
-    axes[1].set_ylim(-0.05,1.05)        
-    
-    
-    axes[2].set_title('F1Score')
-    axes[2].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
-    axes[2].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
-    axes[2].set_xlabel('Treshold')
-    for i in range(prediction.shape[1]):
-        axes[2].plot(f1score[:,i], c=cmap(float(i)/prediction.shape[1]), label=gestureNames[i],linewidth=2)
-    axes[2].plot(f1score[:,prediction.shape[1]],c='black', label='No gesture',linewidth=2)
-    axes[2].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean')
-    axes[2].set_ylim(-0.05,1.05)        
-    
-#    axes[3].set_title('F1Score and Levenshtein Error')
-#    axes[3].xaxis.set_ticks(np.arange(0,maxTreshold*(1/stepsize),10))
-#    axes[3].xaxis.set_ticklabels(np.arange(0,maxTreshold,stepsize*10))
-#    axes[3].set_xlabel('Treshold')
-#    lin, = axes[3].plot(np.mean(f1score,1), c='Black', linestyle='--', linewidth=10, label='Mean F1 Score')
-#    lines.append(lin)
-#    gestureNames.append('Mean F1 Score')
-#    lin, = axes[3].plot(calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize), c='Green', linestyle='--', linewidth=10, label='Levensthein')
-#    lines.append(lin)
-#    gestureNames.append('Levenshtein Error')
-#    axes[3].set_ylim(-0.05,2.05)        
-    
-    fig.legend( lines, gestureNames, loc = '3',ncol=1, labelspacing=0. )
-    
-    tresholds = np.argmax(f1score, 0) * stepsize
-    bestF1Score = np.max(np.mean(f1score,1))
-    bestF1ScoreTreshold = np.argmax(np.mean(f1score,1))*stepsize
-    
-    if postProcess:
-        t_newPred = np.copy(prediction)
-        for i in range(len(tresholds)-1):
-            inds = t_newPred[:,i] < tresholds[i]
-            t_newPred[:,i][inds]=0
-        pred, targ= calcInputSegmentSeries(t_newPred, target, 0.05, False)
-        conf = sklearn.metrics.confusion_matrix(targ,pred)
-        f1score = sklearn.metrics.f1_score(targ, pred, average=None)
-        bestF1AfterPostProcess = np.mean(f1score)
-        print conf, bestF1Score, bestF1AfterPostProcess
-    print 'best f1 score', bestF1Score, 'at', bestF1ScoreTreshold
-    return tresholds, bestF1Score, bestF1ScoreTreshold
 
 
 
@@ -549,6 +800,11 @@ def calcLevenshteinForTresholds(prediction, target, maxTreshold, stepsize):
     for ind, i in enumerate(np.arange(0,maxTreshold,stepsize)):
         levs[ind] = calcLevenshteinError(prediction, target, i)
     return levs
+
+
+    
+
+
 
 def plotLevenshteinForTresholds(prediction, target):
     maxTreshold = 1.5
@@ -637,234 +893,8 @@ def getMinima(errs, nr=-1):
         return indTable[nr,:]
  
 
-       
-def calcMaxActivityPrediction(prediction_orig, target_orig, treshold, gestureMinLength=1):
-    prediction = np.copy(prediction_orig)
-    i = 0
-    start = 0
-    end = 0
-    
-    if not type(treshold) is np.ndarray:
-        treshold = np.ones((prediction_orig.shape[0],1))*treshold
-        
-    #print 'type of treshold', type(treshold)
-    #print treshold
-    
-    while i < prediction.shape[0]:
-        #prediction[i,:] = np.mean(prediction_orig[i-5:i,:],0)
-        j = i
-        posSum = np.sum(prediction[j,:][prediction[j,:]>0])
-        #posSum = np.max(prediction[j,:])
-        while j < prediction.shape[0] and posSum > treshold[j]:
-            posSum = np.sum(prediction[j,:][prediction[j,:]>0])
-            #posSum = np.max(prediction[j,:])
-            j +=1
-        if j - i > gestureMinLength:               
-            start = i
-            end = j
-            sums = np.sum(prediction[start:end,:],0)
-            predicted_class = np.argmax(sums)
-            prediction[start:end+1,:]= 0
-            prediction[start:end,predicted_class]= 1
-        else:
-            prediction[i:j+1,:]= 0
-        i = j + 1
-    return prediction
-       
-####faslch!!!!
-def calcMaxActivitySignal(prediction, target_orig, treshold, gestureMinLength=1):
-    target = np.copy(target_orig)
-    targetInt = np.argmax(target)
-    segmentPredicted = [prediction.shape[1]]
-    segmentTarget = [prediction.shape[1]]
-    #fig, ax = plt.subplots(2, 1, True)
-    #for col in range(prediction.shape[1]):
-    #    ax[0].plot(prediction[:,col],label=str(col),linewidth=2)
-    #for col in range(target.shape[1]):
-    #    ax[0].plot(target[:,col],label='t_'+str(col),linewidth=2)
-    #ax[0].legend()
-    i = 0
-    start = 0
-    end = 0
-    while i < prediction.shape[0]:
-        j = i
-        while j < prediction.shape[0] and np.max(prediction[j,:]) > treshold:
-            j +=1
-        if j - i > gestureMinLength:               
-            start = i
-            end = j
-    #        ax[0].fill_between(np.arange(start,end), 0, 1)
-            sums = np.sum(prediction[start:end,:],0)
-            predicted_class = np.argmax(sums)
-            target_classes = np.max(target[start:end,:],0)
-            if np.max(target_classes) == 0: #wenn ein signal war ohne dass ein target da war
-                segmentPredicted.append(predicted_class)
-                segmentTarget.append(prediction.shape[1])
-            else:
-                for c, c_val in enumerate(target_classes):
-                    if c_val == 1:
-                        segmentPredicted.append(predicted_class)
-                        segmentTarget.append(c)
-                        signal_to_remove_ind = start+np.argmax(target[start:end,c],0)
-                        removeSegment(target, c, signal_to_remove_ind)
-                        
-        i = j + 1
-    pred = np.array(segmentPredicted)
-    targ = np.array(segmentTarget)
-    #for col in range(prediction.shape[1]):
-    #    ax[1].plot(prediction[:,col],label=str(col),linewidth=2)
-    #for col in range(target.shape[1]):
-    #    ax[1].plot(target[:,col],label='t_'+str(col),linewidth=2)
-        
-    for ind, line in enumerate(target):
-        if np.max(line)==1:
-            predicted_class = prediction.shape[1]
-            true_class = np.argmax(line)
-            segmentPredicted.append(predicted_class)
-            segmentTarget.append(true_class)
-            removeSegment(target, true_class, ind)
-    return pred, targ
-    
-def calcInputSegmentSeries(prediction, target, treshold, plot=False):
-    inds = [0]
-    prediction = addTresholdSignal(prediction, treshold)
-    target = addNoGestureSignal(target)
-    predictionInt = np.argmax(prediction, 1)
-    targetInt = np.argmax(target,1)
-    for i in range(1,len(predictionInt)):
-        if predictionInt[i-1] != predictionInt[i]:
-            inds.append(i)
-    inds.append(len(prediction)-1)
-    
-    if plot :
-        plt.figure()
-        cmap = mpl.cm.gist_earth
-        for i in range(prediction.shape[1]):
-            plt.plot(prediction[:,i],c=cmap(float(i)/(prediction.shape[1])))
-        
-        lastI = 0
-        for i in inds:
-            #plt.plot([i,i],[-2,2], c='black')
-            x = np.arange(lastI,i+1)
-            y1 = 0
-            y2 = prediction[x,predictionInt[lastI]]
-            #print predictionInt[i], prediction.shape[1], float(predictionInt[i]) / prediction.shape[1]
-            plt.fill_between(x, y1, y2, facecolor=cmap(float(predictionInt[lastI])/(prediction.shape[1])), alpha=0.5)
-            lastI = i
-        plt.plot(target)
-    
-    mapped = np.zeros(targetInt.shape)
-    
 
-    segmentPredicted = []
-    segmentTarget = []
-    #mappedAway = 0
-    #falsePositives = 0
-    for i in range(1,len(inds)): ###suche nach tp
-        start = inds[i-1]
-        end = inds[i]
-        targetSegment = targetInt[start:end]
-        predictedClass = predictionInt[start]
-        if predictedClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
-            #check for tp case
-            tpInds = np.add(np.where(targetSegment==predictedClass),start)
-            #print tpInds, tpInds.size
-            if not tpInds.size==0 and not np.max(mapped[tpInds])!=0: #segemnt wurde noch nicht gemappet
-                segmentPredicted.append(predictedClass)
-                segmentTarget.append(predictedClass)  
-                if plot:    
-                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='blue')       
-                #wenn true positive gfunden wurde, mappe das target signal
-                mapSegment(mapped, targetInt, predictedClass, start)
-            elif not tpInds.size==0 and np.max(mapped[tpInds])!=0: #segment wurde bereits gemappt
-                segmentPredicted.append(predictedClass)
-                segmentTarget.append(prediction.shape[1]-1) 
-                if plot: 
-                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='red')
-        
-            
-
-            
-    #if plot:           
-    #    plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
-    
-
-            
-                     
-    for i in range(1,len(inds)): #segment ist wrong gesture
-        start = inds[i-1]
-        end = inds[i]
-        targetSegment = targetInt[start:end]
-        predictedClass = predictionInt[start]
-        #check for tp case
-        tpInds = np.add(np.where(targetSegment==predictedClass),start)
-        if predictedClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
-            if tpInds.size==0: 
-                bins = np.bincount(targetSegment,None,prediction.shape[1])
-                ################################################################
-                #uncomment this to allow each target to be classified only once
-                #if np.any(bins[:-1]) and np.max(mapped[start:end]) == 0: 
-                ################################################################
-                if np.any(bins[:-1]): #eine andere geste findet statt 
-                    trueClass = np.argmax(bins[:-1])
-                    mapSegment(mapped, targetInt, trueClass, start)
-                else:
-                    trueClass= prediction.shape[1]-1
-                    
-                segmentPredicted.append(predictedClass)
-                segmentTarget.append(trueClass) 
-                
-                if plot: 
-                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='green')
-                    plt.annotate(str(predictedClass)+'/'+str(trueClass), xy=(start,0))
-                #print targetSegment, bins, predictedClass, trueClass 
-                
-
-    
-    
-    # search for target signals that have not been mapped
-    targetInds=[]
-    targetInds.append(0)
-    for i in range(1,len(targetInt)):
-        if targetInt[i-1] != targetInt[i]:
-            targetInds.append(i)
-    targetInds.append(len(prediction)-1)
-    
-    for i in range(1,len(targetInds)):
-        start = targetInds[i-1]
-        end = targetInds[i]
-        targetSegment = targetInt[start:end]
-        predictedClass = prediction.shape[1]-1
-        trueClass = targetInt[start]
-        
-        if trueClass != prediction.shape[1]-1: #wenn es sich nicht um ein no gesture signal handelt
-            if mapped[start]==0:
-                #print 'trueClass ',trueClass, ' pred ',predictedClass
-            
-                segmentPredicted.append(predictedClass)
-                segmentTarget.append(trueClass) 
-                mapSegment(mapped, targetInt, trueClass, start)
-                if plot: 
-                    plt.fill_between(np.arange(start,end+1),0,-1,facecolor='yellow')
-        else:
-            segmentPredicted.append(prediction.shape[1]-1)
-            segmentTarget.append(prediction.shape[1]-1)
-    #if plot:           
-        #plt.fill_between(np.arange(0,len(prediction)),0,mapped,facecolor='blue',alpha=0.5)
-    
-    
-    #print 'mapped away',mappedAway
-    #print 'fale positive',falsePositives   
-           
-    ######################################################################
-    #######TODO handling wenn langes no gesture segment
-    ###################################################################### 
-
-    #print np.array(zip(segmentPredicted,segmentTarget))
-    pred = np.array(segmentPredicted)
-    targ = np.array(segmentTarget)
-    return pred, targ
-    
+     
     
 def calc1MinusF1FromInputSegment(prediction, target, treshold=0.4):
     pred, targ = calcInputSegmentSeries(prediction, target, treshold, False)
@@ -909,16 +939,3 @@ def removeSegment(target, classNr, ind):
   
     #return target
 
-
-def analyzeSameReservoir100Times():
-    matplotlib.rcParams.update({'font.size': 20})
-    
-    res = np.load(Main.getProjectPath() +'2016-04-07-11-05_ManySameReservoirs.npz')
-    errs = np.squeeze(res['errors'])
-    plt.figure()
-    plt.hist(errs,20)
-    plt.xlabel('F1 Score')
-    plt.ylabel('number of instances')
-    plt.title('Histogramm of 100 instances')
-    plt.tight_layout()
-    return errs
